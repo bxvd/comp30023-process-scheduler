@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
                 if (!strcmp(optarg, "u")) mem_allocator = UNLIMITED_MEMORY;
                 if (!strcmp(optarg, "p")) mem_allocator = SWAPPING_X_MEMORY;
                 if (!strcmp(optarg, "v")) mem_allocator = VIRTUAL_MEMORY;
-                if (!strcmp(optarg, "cm")) mem_allocator = CUSTOM_SCHEDULING;
+                if (!strcmp(optarg, "cm")) mem_allocator = CUSTOM_MEMORY;
                 break;
             
             case 's': mem_size = atoi(optarg); break;
