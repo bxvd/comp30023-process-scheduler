@@ -1,0 +1,11 @@
+-f processes.txt -a ff -m u
+-f processes.txt -a rr -m u -q 10
+-f rr_memoryoverlap.txt -a ff -s 20 -m p
+-f rr_memoryoverlap.txt -a rr -s 20 -m p -q 10
+-f rr_memoryoverlap.txt -a ff -s 20 -m p -q 10
+-f rr_memoryoverlap.txt -a rr -s 20 -m v -q 10
+-f timejumps.txt -a ff -s 50 -m p
+-f timejumps.txt -a rr -s 100 -m p -q 10
+-f timejumps.txt -a rr -s 100 -m v -q 10
+-f rr_memoryoverlap.txt -a rr -s 40  -m p -q 10
+-f rr_memoryoverlap.txt -a rr -s 40 -m v -q 10
