@@ -5,33 +5,16 @@ SRC := scheduler
 OBJ := $(SRC:%=$(SDIR)/%.o)
 SRC := $(SRC:%=$(SDIR)/%.c)
 
-# Program options
-OPT := -f processes.txt -a rr -m v -d -s 256
-
-# Memory sanitiser
-SMEM = -fsanitize=address -g
-
-ifeq ($(s), 1)
-	# Debug target
-	CC = clang
-	CFLAGS = -Wall -Wextra -I$(IDIR) $(SMEM)
-	s := on
-else
-	# Build target
-	CC = gcc
-	CFLAGS = -Wall -Wextra -I$(IDIR)
-	s := off
-endif
+# Build target
+CC = gcc
+CFLAGS = -Wall -Wextra -g -I$(IDIR)
 
 # Program
 EXE = scheduler
 
-PHONY: all debug clean
+PHONY: all clean
 
 all: clean $(EXE)
-
-debug: clean $(EXE)
-	./$(EXE) $(OPT)
 
 $(EXE): $(OBJ)
 	@$(CC) -o $@ $^ $(CFLAGS)

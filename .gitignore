@@ -1,3 +1,6 @@
 processes.txt
 scheduler
 *.o
+.vscode
+Makefiled
+.DS_Store
