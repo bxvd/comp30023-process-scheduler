@@ -1,6 +1,6 @@
-processes.txt
 scheduler
 *.o
 .vscode
 Makefiled
+Makefiles
 .DS_Store
