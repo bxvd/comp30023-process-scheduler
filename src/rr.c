@@ -1,73 +1,66 @@
 #include <stdio.h>
+#include <limits.h>
 
 #include "sys.h"
 
-int rr_run(ProcTable *proc_table, int t, int q, int verbosity) {
+int next_process(ProcTable *proc_table) {
 
-    // Shorthand variables
-    Process *proc = &proc_table->procs[proc_table->current];
+    // Get process with longest elapsed time since last state change
+    int min_tl = INT_MAX;
 
-    // Current process is within the quantum
-    if (t < (proc->tl + q)) {
+    for (int i = 0; i < proc_table->n_procs; i++) {
 
-        if (proc->status == READY) {
+        if (proc_table->procs[i].status == READY) {
 
-            start_process(proc, t);
+            if (proc_table->procs[i].tl < min_tl) {
 
-            fprintf(stdout, "%d, RUNNING, id=%d, remaining-time=%d\n", t, proc->id, proc->tr);
-        }
+                min_tl = proc_table->procs[i].tl;
+                proc_table->current = i;
+            } else if (proc_table->procs[i].tl == min_tl) {
 
-        proc->tr--;
-    } else {
-
-        proc->tl = t;
-        proc->status = proc->tr ? READY : FINISHED;
-
-
-
-
-
-
-        // Start next process if one is available
-        if (proc_table->n_procs - proc_table->current) {
-
-            proc_table->current++;
-
-            return rr_run(proc_table, t, verbosity);
+                // Choose latest arrival time for processes with same elapsed time since state change
+                proc_table->current = proc_table->procs[proc_table->current].ta < proc_table->procs[i].ta ? i : proc_table->current;
+            }
         }
     }
 
+    return min_tl == INT_MAX ? FINISHED : READY;
+}
 
+int rr_run(ProcTable *proc_table, int t, int q, int verbosity) {
 
+    // Shorthand variable
+    Process *proc = &proc_table->procs[proc_table->current];
 
-
-
-
-
-
-
-    //fprintf(stderr, "t: %d, pid: %d, pstatus: %d, nprocs: %d, current: %d\r", t, proc->id, proc->status, proc_table->n_procs, proc_table->current);
-
+    // Start process
     if (proc->status == READY) {
 
         start_process(proc, t);
-
         fprintf(stdout, "%d, RUNNING, id=%d, remaining-time=%d\n", t, proc->id, proc->tr);
-
-    } else if (proc->tr == 0 && proc->status == RUNNING) {
-
-        finish_process(proc, t);
-
-        proc_table->current++;
-
-        fprintf(stdout, "%d, FINISHED, id=%d, proc-remaining=%d\n", t, proc->id, proc_table->n_procs - proc_table->current);
-
-        // Start next process if one is available
-        if (proc_table->n_procs - proc_table->current) return ff_run(proc_table, t, verbosity);
     }
 
-    // Reduce remaining time for the running process by one cycle
-    if (proc->status == RUNNING) proc->tr--;
+    // Boolean
+    int in_quantum = t < (proc->tl + q);
 
-    return (proc_table->n_procs - proc_table->current) ? RUNNING : FINISHED;
+    // Process has completed job time
+    if (!proc->tr) {
+
+        finish_process(proc, t);
+        proc_table->n_alive--;
+
+        fprintf(stdout, "%d, FINISHED, id=%d, proc-remaining=%d\n", t, proc->id, proc_table->n_alive);
+    }
+
+    // Process is still running but out of quantum time
+    if (proc->status == RUNNING && !in_quantum) pause_process(proc, t);
+
+    // Give CPU to next process if one is available
+    if (proc->status != RUNNING) {
+        return next_process(proc_table) == FINISHED ? READY : rr_run(proc_table, t, q, verbosity);
+    }
+
+    // Give CPU to current process
+    proc->tr--;
+
+    return RUNNING;
 }

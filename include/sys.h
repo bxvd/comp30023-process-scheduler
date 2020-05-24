@@ -34,7 +34,7 @@ enum { NORMAL, VERBOSE, DEBUG };
  * int tj:     Job time.
  * int tr:     Time remaining.
  * int ts;     Time started.
- * int tl;     Time last run.
+ * int tl;     Time of last state change.
  * int tf:     Time finished.
  * int *pages: Memory addresses allocated to the process.
  * int status: Current state of the process.
@@ -47,11 +47,12 @@ typedef struct {
  * Process table struct.
  * 
  * int n_procs:    Number of processes in table.
+ * int n_alive:    Number of processes in READY or RUNNING state.
  * int current:    Index of process currently running.
  * Process *procs: Array of processes.
  */
 typedef struct {
-    int n_procs, current;
+    int n_procs, n_alive, current;
     Process *procs;
 } ProcTable;
 
@@ -81,6 +82,7 @@ int add_process(ProcTable *proc_table, Process new_proc);
 void set(int variable, int value);
 
 void start_process(Process *proc, int t);
+void pause_process(Process *proc, int t);
 void finish_process(Process *proc, int t);
 
 /*

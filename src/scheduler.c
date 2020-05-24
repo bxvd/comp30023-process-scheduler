@@ -29,12 +29,14 @@
 void print_stats(ProcTable *proc_table) {
 
     // Throughput, turnaround, makespan, and overhead
-    int tp_min = INT_MAX, tp_max = 0, tp_avg = 0, trn = 0, ms;
+    int tp_min = INT_MAX, tp_max = 0, tp_avg = 0, trn = 0, ms = 0;
     float oh_max = 0.0, oh_avg = 0.0;
     Process _proc;
 
     // Makespan
-    ms = proc_table->procs[proc_table->n_procs - 1].tf;
+    for (int i = 0; i < proc_table->n_procs; i++) {
+        ms = proc_table->procs[i].tf > ms ? proc_table->procs[i].tf : ms;
+    }
 
     // Throughput intervals
     int n_intervals = ms / EPOCH, interval[n_intervals];
@@ -98,7 +100,7 @@ int get_procs_from_file(char *filename, Process **procs) {
     while (fscanf(file, "%d %d %d %d\n", &new_proc.ta, &new_proc.id, &new_proc.mem, &new_proc.tj) == 4) {
 
         new_proc.tr = new_proc.tj;
-        new_proc.tl = 0;
+        new_proc.tl = new_proc.ta;
         new_proc.status = READY;
 
         // Expand array memory and copy data into it
@@ -132,7 +134,7 @@ int proc_compare(const void *a, const void *b) {
 
 void simulate(Process *procs, int n) {
 
-    int t = -1; // Time
+    int t = -1, status;
     ProcTable *proc_table = new_proc_table();
 
     // Sort processes in increasing order of arrival time and ID
@@ -141,6 +143,7 @@ void simulate(Process *procs, int n) {
     // Loop as a clock that calls run() on each cycle
     do {
 
+        // Time
         t++;
         
         // Add a new process if clock is at its arrival time
@@ -148,8 +151,10 @@ void simulate(Process *procs, int n) {
             if (procs[i].ta == t) add_process(proc_table, procs[i]);
         }
 
+        status = run(proc_table, t);
+
     // Continue running if there are still queued processes or if the system hasn't finished running
-    } while (n > proc_table->n_procs || (proc_table, t) == RUNNING);
+    } while (n > proc_table->n_procs || status == RUNNING);
 
     print_stats(proc_table);
 

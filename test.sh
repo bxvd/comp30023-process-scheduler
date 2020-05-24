@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 
 make
-./scheduler -f processes.txt -a rr -m u -q 10
+./scheduler -f rr_memoryoverlap.txt -a ff -s 20 -m p

@@ -21,6 +21,7 @@ int add_process(ProcTable *proc_table, Process new_proc) {
 
     // Increase process table size
     proc_table->n_procs++;
+    proc_table->n_alive++;
     proc_table->procs = (Process*)realloc(proc_table->procs, proc_table->n_procs * sizeof(Process));
 
     // Copy process details to the process table
@@ -44,12 +45,20 @@ void start_process(Process *proc, int t) {
 
     proc->status = RUNNING;
     proc->ts = t;
+    proc->tl = t;
+}
+
+void pause_process(Process *proc, int t) {
+
+    proc->status = READY;
+    proc->tl = t;
 }
 
 void finish_process(Process *proc, int t) {
 
     proc->status = FINISHED;
     proc->tf = t;
+    proc->tl = t;
 }
 
 int run(ProcTable *proc_table, int t) {
