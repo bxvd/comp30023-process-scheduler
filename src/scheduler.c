@@ -12,13 +12,14 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
-#include <math.h>
 #include <limits.h>
 
 #include "sys.h"
 
 #define OPTARGS "f:a:m:s:q:vd"
 #define EPOCH   60
+
+#define ceil(x) (x > (float)((int)x) ? (int)x + 1 : (int)x)
 
 /*
  * Calculates and prints statistics for processes that
@@ -71,8 +72,8 @@ void print_stats(ProcTable *proc_table) {
     }
 
     // Averages
-    tp_avg = (int)ceil((float)tp_avg / n_intervals);
-    trn = (int)ceil((float)trn / proc_table->n_procs);
+    tp_avg = ceil((float)tp_avg / n_intervals);
+    trn = ceil((float)trn / proc_table->n_procs);
     oh_avg /= proc_table->n_procs;
 
     fprintf(stdout, "Throughput %d, %d, %d\n", tp_avg, tp_min, tp_max);
