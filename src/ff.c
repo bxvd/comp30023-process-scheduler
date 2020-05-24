@@ -1,10 +1,10 @@
-#include <stdlib.h>
 #include <stdio.h>
 
 #include "sys.h"
 
 int ff_run(ProcTable *proc_table, int t, int verbosity) {
 
+    // Shorthand variable
     Process *proc = &proc_table->procs[proc_table->current];
 
     //fprintf(stderr, "t: %d, pid: %d, pstatus: %d, nprocs: %d, current: %d\r", t, proc->id, proc->status, proc_table->n_procs, proc_table->current);
@@ -30,5 +30,5 @@ int ff_run(ProcTable *proc_table, int t, int verbosity) {
     // Reduce remaining time for the running process by one cycle
     if (proc->status == RUNNING) proc->tr--;
 
-    return (proc_table->n_procs - proc_table->current) ? RUNNING : FINISHED;
+    return (proc_table->n_procs - proc_table->current) ? RUNNING : READY;
 }

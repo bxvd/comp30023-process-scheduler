@@ -1,50 +1,73 @@
-#include <stdlib.h>
 #include <stdio.h>
 
 #include "sys.h"
 
-/*
- * Runs all processes in a process table on a first-come-first-served basis.
- * Runs until all processes in proc_table are finished.
- * 
- * ProcTable *proc_table: Pointer to a process table.
- * 
- * Returns int: Evaluates to true if there is an error, false otherwise.
- */
-int rr_run(ProcTable *proc_table) {
+int rr_run(ProcTable *proc_table, int t, int q, int verbosity) {
 
-    // Time
-    int t = proc_table->procs[0].ta;
+    // Shorthand variables
+    Process *proc = &proc_table->procs[proc_table->current];
 
-    /* DEBUG */
-    if (verbosity == DEBUG) {
+    // Current process is within the quantum
+    if (t < (proc->tl + q)) {
 
-        fprintf(stderr, "Sorted process table (%d processes):\n(id, memory, time arrived, time required)\n", proc_table->n_procs);
-        for (int i = 0; i < proc_table->n_procs; i++) {
-            fprintf(stderr, "%d %d %d %d\n", proc_table->procs[i].id, proc_table->procs[i].mem, proc_table->procs[i].ta, proc_table->procs[i].tr);
+        if (proc->status == READY) {
+
+            start_process(proc, t);
+
+            fprintf(stdout, "%d, RUNNING, id=%d, remaining-time=%d\n", t, proc->id, proc->tr);
         }
-        fprintf(stderr, "\n");
+
+        proc->tr--;
+    } else {
+
+        proc->tl = t;
+        proc->status = proc->tr ? READY : FINISHED;
+
+
+
+
+
+
+        // Start next process if one is available
+        if (proc_table->n_procs - proc_table->current) {
+
+            proc_table->current++;
+
+            return rr_run(proc_table, t, verbosity);
+        }
     }
 
-    // Iterate on each process
-    for (int i = 0; i < proc_table->n_procs; i++) {
 
-        // Start process
-        fprintf(stdout, "%d, RUNNING, id=%d, remaining-time=%d", t, proc_table->procs[i].id, proc_table->procs[i].tr);
 
-        // Allocate memory
-        if (mem_allocator != UNLIMITED_MEMORY);
 
-        fprintf(stdout, "\n");
 
-        // Update clock
-        t += proc_table->procs[i].tr;
 
-        fprintf(stdout, "%d, FINISHED, id=%d, proc-remaining=%d\n", t, proc_table->procs[i].id, proc_table->n_procs - i - 1);
 
-        proc_table->procs[i].status = FINISHED;
-        proc_table->procs[i].tf = t;
+
+
+
+    //fprintf(stderr, "t: %d, pid: %d, pstatus: %d, nprocs: %d, current: %d\r", t, proc->id, proc->status, proc_table->n_procs, proc_table->current);
+
+    if (proc->status == READY) {
+
+        start_process(proc, t);
+
+        fprintf(stdout, "%d, RUNNING, id=%d, remaining-time=%d\n", t, proc->id, proc->tr);
+
+    } else if (proc->tr == 0 && proc->status == RUNNING) {
+
+        finish_process(proc, t);
+
+        proc_table->current++;
+
+        fprintf(stdout, "%d, FINISHED, id=%d, proc-remaining=%d\n", t, proc->id, proc_table->n_procs - proc_table->current);
+
+        // Start next process if one is available
+        if (proc_table->n_procs - proc_table->current) return ff_run(proc_table, t, verbosity);
     }
 
-    return OK;
+    // Reduce remaining time for the running process by one cycle
+    if (proc->status == RUNNING) proc->tr--;
+
+    return (proc_table->n_procs - proc_table->current) ? RUNNING : FINISHED;
 }

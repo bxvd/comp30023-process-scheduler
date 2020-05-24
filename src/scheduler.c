@@ -20,6 +20,12 @@
 #define OPTARGS "f:a:m:s:q:vd"
 #define EPOCH   60
 
+/*
+ * Calculates and prints statistics for processes that
+ * have finished.
+ * 
+ * ProcTable *proc_table: Pointer to a process table.
+ */
 void print_stats(ProcTable *proc_table) {
 
     // Throughput, turnaround, makespan, and overhead
@@ -92,6 +98,7 @@ int get_procs_from_file(char *filename, Process **procs) {
     while (fscanf(file, "%d %d %d %d\n", &new_proc.ta, &new_proc.id, &new_proc.mem, &new_proc.tj) == 4) {
 
         new_proc.tr = new_proc.tj;
+        new_proc.tl = 0;
         new_proc.status = READY;
 
         // Expand array memory and copy data into it
@@ -133,14 +140,16 @@ void simulate(Process *procs, int n) {
 
     // Loop as a clock that calls run() on each cycle
     do {
-        //getchar();
 
         t++;
-        for (int i = 0; i < n; i++) {
+        
+        // Add a new process if clock is at its arrival time
+        for (int i = proc_table->n_procs; i < n; i++) {
             if (procs[i].ta == t) add_process(proc_table, procs[i]);
         }
 
-    } while (run(proc_table, t) == RUNNING);
+    // Continue running if there are still queued processes or if the system hasn't finished running
+    } while (n > proc_table->n_procs || (proc_table, t) == RUNNING);
 
     print_stats(proc_table);
 

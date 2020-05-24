@@ -4,3 +4,5 @@ scheduler
 Makefiled
 Makefiles
 .DS_Store
+*.txt
+tests

@@ -34,12 +34,13 @@ enum { NORMAL, VERBOSE, DEBUG };
  * int tj:     Job time.
  * int tr:     Time remaining.
  * int ts;     Time started.
+ * int tl;     Time last run.
  * int tf:     Time finished.
  * int *pages: Memory addresses allocated to the process.
  * int status: Current state of the process.
  */
 typedef struct {
-    int id, mem, ta, tj, tr, ts, tf, *pages, status;
+    int id, mem, ta, tj, tr, ts, tl, tf, *pages, status;
 } Process;
 
 /*

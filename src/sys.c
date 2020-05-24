@@ -61,6 +61,7 @@ int run(ProcTable *proc_table, int t) {
 
     switch (scheduler) {
         case FF_SCHEDULING: return ff_run(proc_table, t, verbosity);
+        case RR_SCHEDULING: return rr_run(proc_table, t, quantum, verbosity);
     }
 
     return ERROR;
