@@ -1,20 +1,44 @@
+/*
+ * sys.c
+ * 
+ * An operating system consisting of only process scheduling and
+ * memory allocation procedures. Written for project 2 of
+ * COMP30023 Computer Systems, semester 1 2020.
+ * 
+ * Author: Brodie Daff
+ *         bdaff@student.unimelb.edu.au
+ */ 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "sys.h"
-#include "ff.h"
-#include "rr.h"
 
-int scheduler, mem_allocator, verbosity, sys_mem, quantum = DEFAULT_QUANTUM;
-
-ProcTable *new_proc_table() {
+ProcTable *create_proc_table() {
 
     ProcTable *proc_table = (ProcTable*)calloc(1, sizeof(ProcTable));
     proc_table->n_procs = 0;
     proc_table->current = 0;
+    proc_table->quantum = DEFAULT_QUANTUM;
 
     return proc_table;
+}
+
+Process *create_process(int id, int mem, int ta, int tj) {
+
+    Process *proc = (Process*)calloc(1, sizeof(Process));
+    proc->id = id;
+    proc->mem = mem;
+    proc->ts = -1;
+    proc->tl = proc->ta = ta;
+    proc->tr = proc->tj = tj;
+    proc->tm = proc->load_s = 0;
+    proc->pages = NULL;
+    proc->n_pages = 0;
+    proc->status = WAITING;
+
+    return proc;
 }
 
 int add_process(ProcTable *proc_table, Process new_proc) {
@@ -30,22 +54,25 @@ int add_process(ProcTable *proc_table, Process new_proc) {
     return proc_table->procs == NULL ? ERROR : OK;
 }
 
-void set(int variable, int value) {
+void start_process(ProcTable *proc_table, Memory *memory, int t) {
 
-    switch (variable) {
-        case SCHEDULER: scheduler = value; break;
-        case MEM_ALLOCATOR: mem_allocator = value; break;
-        case MEM_SIZE: sys_mem = value; break;
-        case QUANTUM: quantum = value; break;
-        case VERBOSITY: verbosity = value; break; 
+    // Shorthand
+    Process *proc = &proc_table->procs[proc_table->current];
+    int _status = proc->status;
+
+    // Initialise memory
+    if (proc->status == WAITING) {
+        proc->pages = (int*)calloc(1, (proc->mem / memory->page_size) * sizeof(int));
     }
-}
 
-void start_process(Process *proc, int t) {
+    // Use clock cycle for memory management
+    proc->status = allocate_memory(proc_table, memory);
 
-    proc->status = RUNNING;
-    proc->ts = t;
-    proc->tl = t;
+    // Check if process status has changed
+    proc->tl = _status == proc->status ? proc->ts : t;
+
+    // Indicate process initialisation using the start time
+    proc->ts = proc->ts == -1 ? t : proc->ts; /* FLAG NEEDED */
 }
 
 void pause_process(Process *proc, int t) {
@@ -54,23 +81,38 @@ void pause_process(Process *proc, int t) {
     proc->tl = t;
 }
 
-void finish_process(Process *proc, int t) {
+void finish_process(ProcTable *proc_table, Memory *memory, int t) {
 
+    // Shorthand
+    Process *proc = &proc_table->procs[proc_table->current];
+
+    free_memory(proc->pages, proc->n_pages, memory);
     proc->status = FINISHED;
     proc->tf = t;
     proc->tl = t;
 }
 
-int run(ProcTable *proc_table, int t) {
+void print_proc_table(ProcTable *proc_table, int t) {
 
-    /* VERBOSE */
-    //if (verbosity == VERBOSE || verbosity == DEBUG) fprintf(stderr, "System running\n\n");
+    fprintf(stderr, "Process table at time %d -> %d process(es), %d alive, currently running process %d\n", t, proc_table->n_procs, proc_table->n_alive, proc_table->procs[proc_table->current].id);
+    fprintf(stderr, "PID | TR | TA | TJ | TL | TF | Status\n----|----|----|----|----|----|-------\n");
 
+    for (int i = 0; i < proc_table->n_procs; i++) {
+        Process proc = proc_table->procs[i];
+        fprintf(stderr, "%3d |%3d |%3d |%3d |%3d |%3d |%3d\n", proc.id, proc.tr, proc.ta, proc.tj, proc.tl, proc.tf, proc.status);
+    }
+}
+
+int run(ProcTable *proc_table, Memory *memory, int t) {
+
+    //print_proc_table(proc_table, t);
+
+    // Waiting for processes
     if (!proc_table->n_procs) return READY;
 
-    switch (scheduler) {
-        case FF_SCHEDULING: return ff_run(proc_table, t, verbosity);
-        case RR_SCHEDULING: return rr_run(proc_table, t, quantum, verbosity);
+    switch (proc_table->scheduler) {
+        case FF_SCHEDULING: return ff_run(proc_table, memory, t);
+        case RR_SCHEDULING: return rr_run(proc_table, memory, t);
     }
 
     return ERROR;

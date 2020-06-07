@@ -1,5 +1,5 @@
 /*
- * sys.h sys.c
+ * sys.c
  * 
  * An operating system consisting of only process scheduling and
  * memory allocation procedures. Written for project 2 of
@@ -9,59 +9,37 @@
  *         bdaff@student.unimelb.edu.au
  */ 
 
+#ifndef SYS_H
+#define SYS_H
+
+#include "systypes.h"
+#include "mem.h"
+#include "rr.h"
+#include "ff.h"
+
 // Use the following default values if none specified
 #ifndef DEFAULT_QUANTUM
 #define DEFAULT_QUANTUM 10
 #endif
-
-// Status codes
-enum { OK, ERROR, READY, RUNNING, FINISHED };
-
-// System variables that can be set
-enum { SCHEDULER, MEM_ALLOCATOR, MEM_SIZE, QUANTUM, VERBOSITY };
-
-// System running modes
-enum { FF_SCHEDULING, RR_SCHEDULING, CUSTOM_SCHEDULING };
-enum { UNLIMITED_MEMORY, SWAPPING_X_MEMORY, VIRTUAL_MEMORY, CUSTOM_MEMORY };
-enum { NORMAL, VERBOSE, DEBUG };
-
-/*
- * Process struct for use in a process table.
- * 
- * int id:     Process ID.
- * int mem:    Memory required (KB).
- * int ta:     Time arrived.
- * int tj:     Job time.
- * int tr:     Time remaining.
- * int ts;     Time started.
- * int tl;     Time of last state change.
- * int tf:     Time finished.
- * int *pages: Memory addresses allocated to the process.
- * int status: Current state of the process.
- */
-typedef struct {
-    int id, mem, ta, tj, tr, ts, tl, tf, *pages, status;
-} Process;
-
-/*
- * Process table struct.
- * 
- * int n_procs:    Number of processes in table.
- * int n_alive:    Number of processes in READY or RUNNING state.
- * int current:    Index of process currently running.
- * Process *procs: Array of processes.
- */
-typedef struct {
-    int n_procs, n_alive, current;
-    Process *procs;
-} ProcTable;
 
 /*
  * Allocates memory for a new ProcTable and initialises its values.
  * 
  * Returns ProcTable*: Pointer to the new ProcTable.
  */
-ProcTable *new_proc_table();
+ProcTable *create_proc_table();
+
+/*
+ * Creates a new process and initialise its values.
+ * 
+ * int id:  Process ID (must be unique).
+ * int mem: Amount of memory required by the process in KB.
+ * int ta:  Arrival time of the instruction to create the process.
+ * int tj:  The process' job time (total CPU time required).
+ * 
+ * Returns Process*: Pointer to the newly created process.
+ */
+Process *create_process(int id, int mem, int ta, int tj);
 
 /*
  * Adds a process to the process table.
@@ -81,9 +59,20 @@ int add_process(ProcTable *proc_table, Process new_proc);
  */
 void set(int variable, int value);
 
-void start_process(Process *proc, int t);
+/*
+ * NEEDS DOC
+ */
+void start_process(ProcTable *proc_table, Memory *memory, int t);
+
+/*
+ * NEEDS DOC
+ */
 void pause_process(Process *proc, int t);
-void finish_process(Process *proc, int t);
+
+/*
+ * NEEDS DOC
+ */
+void finish_process(ProcTable *proc_table, Memory *memory, int t);
 
 /*
  * Executes one clock cycle on a process table when called.
@@ -93,4 +82,6 @@ void finish_process(Process *proc, int t);
  * 
  * Returns int: Enumerated status code.
  */
-int run(ProcTable *proc_table, int t);
+int run(ProcTable *proc_table, Memory *memory, int t);
+
+#endif

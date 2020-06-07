@@ -15,6 +15,7 @@
 #include <limits.h>
 
 #include "sys.h"
+#include "mem.h"
 
 #define OPTARGS "f:a:m:s:q:vd"
 #define EPOCH   60
@@ -40,7 +41,7 @@ void print_stats(ProcTable *proc_table) {
     }
 
     // Throughput intervals
-    int n_intervals = ms / EPOCH, interval[n_intervals];
+    int n_intervals = ceil((float)ms / EPOCH), interval[n_intervals];
     memset(interval, 0, n_intervals * sizeof(int));
 
     for (int i = 0; i < proc_table->n_procs; i++) {
@@ -51,7 +52,7 @@ void print_stats(ProcTable *proc_table) {
 
             // Increase count of processes finished in each interval
             interval[_proc.tf / (EPOCH + 1)]++;
-        
+
             // Turnaround time
             int _trn = _proc.tf - _proc.ta;
             trn += _trn;
@@ -59,7 +60,7 @@ void print_stats(ProcTable *proc_table) {
             // Overhead
             float _oh = (float)_trn / _proc.tj;
             oh_max = _oh > oh_max ? _oh : oh_max;
-            oh_avg += _oh;
+            oh_avg += _oh;\
         }
     }
 
@@ -92,21 +93,20 @@ void print_stats(ProcTable *proc_table) {
  */
 int get_procs_from_file(char *filename, Process **procs) {
 
-    int n = 0;
-    Process new_proc;
+    int n = 0, ta, id, mem, tj;
     FILE *file;
 
     if ((file = fopen(filename, "r")) == NULL) return ERROR;
 
-    while (fscanf(file, "%d %d %d %d\n", &new_proc.ta, &new_proc.id, &new_proc.mem, &new_proc.tj) == 4) {
+    while (fscanf(file, "%d %d %d %d\n", &ta, &id, &mem, &tj) == 4) {
 
-        new_proc.tr = new_proc.tj;
-        new_proc.tl = new_proc.ta;
-        new_proc.status = READY;
+        Process *new_proc = create_process(id, mem, ta, tj);
 
         // Expand array memory and copy data into it
         *procs = (Process*)realloc(*procs, ++n * sizeof(Process));
-        memmove(*procs + n - 1, &new_proc, sizeof(Process));
+        memmove(*procs + n - 1, new_proc, sizeof(Process));
+
+        free(new_proc);
     }
 
     fclose(file);
@@ -133,16 +133,16 @@ int proc_compare(const void *a, const void *b) {
     return 1;
 }
 
-void simulate(Process *procs, int n) {
+void simulate(Process *procs, int n, ProcTable *proc_table, Memory *memory) {
 
     int t = -1, status;
-    ProcTable *proc_table = new_proc_table();
 
     // Sort processes in increasing order of arrival time and ID
     qsort(procs, n, sizeof(Process), proc_compare);
 
     // Loop as a clock that calls run() on each cycle
     do {
+        //getchar();
 
         // Time
         t++;
@@ -152,24 +152,22 @@ void simulate(Process *procs, int n) {
             if (procs[i].ta == t) add_process(proc_table, procs[i]);
         }
 
-        status = run(proc_table, t);
+        status = run(proc_table, memory, t);
 
     // Continue running if there are still queued processes or if the system hasn't finished running
-    } while (n > proc_table->n_procs || status == RUNNING);
+    } while (n > proc_table->n_procs || status != READY);
 
     print_stats(proc_table);
-
-    free(proc_table);
 }
 
 int main(int argc, char **argv) {
     
     int opt, n, scheduler = FF_SCHEDULING, mem_allocator = UNLIMITED_MEMORY,
-        mem_size = 0, quantum = DEFAULT_QUANTUM, verbosity = NORMAL;
+        mem_size = 0, quantum = DEFAULT_QUANTUM, verbosity = DEBUG;
     char *filename;
+    ProcTable *proc_table = NULL;
     Process *procs = NULL;
-
-    set(VERBOSITY, verbosity);
+    Memory *memory = NULL;
 
     // Handle CL options
     while ((opt = getopt(argc, argv, OPTARGS)) != -1) {
@@ -180,37 +178,20 @@ int main(int argc, char **argv) {
                 break;
 
             case 'a':
-                if (!strcmp(optarg, "ff")) set(SCHEDULER, FF_SCHEDULING);
-                if (!strcmp(optarg, "rr")) set(SCHEDULER, RR_SCHEDULING);
-                if (!strcmp(optarg, "cs")) set(SCHEDULER, CUSTOM_SCHEDULING);
+                if (!strcmp(optarg, "ff")) scheduler = FF_SCHEDULING;
+                if (!strcmp(optarg, "rr")) scheduler = RR_SCHEDULING;
+                if (!strcmp(optarg, "cs")) scheduler = CUSTOM_SCHEDULING;
                 break;
             
             case 'm':
-                if (!strcmp(optarg, "u")) set(MEM_ALLOCATOR, UNLIMITED_MEMORY);
-                if (!strcmp(optarg, "p")) set(MEM_ALLOCATOR, SWAPPING_X_MEMORY);
-                if (!strcmp(optarg, "v")) set(MEM_ALLOCATOR, VIRTUAL_MEMORY);
-                if (!strcmp(optarg, "cm")) set(MEM_ALLOCATOR, CUSTOM_MEMORY);
+                if (!strcmp(optarg, "u")) mem_allocator = UNLIMITED_MEMORY;
+                if (!strcmp(optarg, "p")) mem_allocator = SWAPPING_X_MEMORY;
+                if (!strcmp(optarg, "v")) mem_allocator = VIRTUAL_MEMORY;
+                if (!strcmp(optarg, "cm")) mem_allocator = CUSTOM_MEMORY;
                 break;
             
-            case 's':
-                set(MEM_SIZE, atoi(optarg));
-                mem_size = atoi(optarg);
-                break;
-
-            case 'q':
-                set(QUANTUM, atoi(optarg));
-                quantum = atoi(optarg);
-                break;
-
-            case 'v':
-                set(VERBOSITY, VERBOSE);
-                verbosity = VERBOSE;
-                break;
-            
-            case 'd':
-                set(VERBOSITY, DEBUG);
-                verbosity = DEBUG;
-                break;
+            case 's': mem_size = atoi(optarg); break;
+            case 'q': quantum = atoi(optarg); break;
         }
     }
 
@@ -255,9 +236,21 @@ int main(int argc, char **argv) {
         fprintf(stderr, "\n");
     }
 
-    simulate(procs, n);
+    // Initialise data structures
+    proc_table = create_proc_table();
+    memory = create_memory(mem_size, PAGE_SIZE);
+
+    proc_table->scheduler = scheduler;
+    proc_table->quantum = quantum;
+    memory->allocator = mem_allocator;
+
+    // Main program
+    simulate(procs, n, proc_table, memory);
 
     free(procs);
+    free(proc_table);
+    free(memory->pages);
+    free(memory);
     free(filename);
 
     return 0;

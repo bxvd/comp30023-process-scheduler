@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <limits.h>
 
-#include "sys.h"
+#include "rr.h"
 
 int next_process(ProcTable *proc_table) {
 
@@ -27,15 +27,16 @@ int next_process(ProcTable *proc_table) {
     return min_tl == INT_MAX ? FINISHED : READY;
 }
 
-int rr_run(ProcTable *proc_table, int t, int q, int verbosity) {
-
-    // Shorthand variable
+int rr_run(ProcTable *proc_table, Memory *memory, int t) {
+/*
+    // Shorthand variables
     Process *proc = &proc_table->procs[proc_table->current];
+    int q = proc_table->quantum;
 
     // Start process
     if (proc->status == READY) {
 
-        start_process(proc, t);
+        start_process(proc, memory, t);
         fprintf(stdout, "%d, RUNNING, id=%d, remaining-time=%d\n", t, proc->id, proc->tr);
     }
 
@@ -56,11 +57,11 @@ int rr_run(ProcTable *proc_table, int t, int q, int verbosity) {
 
     // Give CPU to next process if one is available
     if (proc->status != RUNNING) {
-        return next_process(proc_table) == FINISHED ? READY : rr_run(proc_table, t, q, verbosity);
+        return next_process(proc_table) == FINISHED ? READY : rr_run(proc_table, memory, t);
     }
 
     // Give CPU to current process
     proc->tr--;
-
+*/
     return RUNNING;
 }
