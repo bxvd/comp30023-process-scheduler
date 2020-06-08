@@ -1,21 +1,19 @@
 /*
  * ff.c
  * 
- * An First-Come-First-Served process scheduling algorithm
+ * A First-Come-First-Served process scheduling algorithm
  * to run for a process scheduling simulator. Written for
  * project 2 of COMP30023 Computer Systems, semester 1 2020.
  * 
  * Author: Brodie Daff
  *         bdaff@student.unimelb.edu.au
- */ 
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "ff.h"
-
-#define ceil(x) (x > (float)((int)x) ? (int)x + 1 : (int)x)
 
 /*
  * Handles starting the process and printing output for the
@@ -65,7 +63,7 @@ void ff_start(ProcTable *proc_table, Memory *memory, int t) {
  * Memory *memory:        Pointer to memory struct.
  * int t:                 Time.
  */
-int ff_finish(ProcTable *proc_table, Memory *memory, int t) {
+void ff_finish(ProcTable *proc_table, Memory *memory, int t) {
 
     // Shorthand variable
     Process *proc = &proc_table->procs[proc_table->current];
@@ -89,6 +87,26 @@ int ff_finish(ProcTable *proc_table, Memory *memory, int t) {
 }
 
 /*
+ * Sets the current process in a process table according to
+ * First-Come-First-Served scheduling.
+ * 
+ * ProcTable *proc_table: Pointer to a process table.
+ * 
+ * Returns int: Enumerated status code indicating if a valid next process
+ *              is available.
+ */
+int ff_next_process(ProcTable *proc_table) {
+
+    if (proc_table->current < proc_table->n_procs - 1) {
+
+        proc_table->current++;
+        return READY;
+    }
+
+    return FINISHED;
+}
+
+/*
  * First-Come-Fisrt-Served process scheduling algorithm.
  * 
  * ProcTable *proc_table: Pointer to process table.
@@ -103,19 +121,21 @@ int ff_run(ProcTable *proc_table, Memory *memory, int t) {
     Process *proc = &proc_table->procs[proc_table->current];
 
     if (proc->status != RUNNING) {
-
-        ff_start(proc_table, memory, t);
-
-    } else if (proc->tr == 0) {
-
-        ff_finish(proc_table, memory, t);
-
-        // Start next process if one is available
-        if (proc_table->n_procs - proc_table->current) return ff_run(proc_table, memory, t);
+        simulate_start(proc_table, memory, t);
+    } else if (!proc->tr) {
+        simulate_finish(proc_table, memory, t);
     }
 
-    // Reduce remaining time for the running process by one cycle
-    if (proc->status == RUNNING) proc->tr--;
+    // Use this clock cycle for memory loading
+    if (proc->status == LOADING) return LOADING;
+    
+    if (proc->status == RUNNING) {
+        // Reduce remaining time for the running process by one cycle
+        proc->tr--;
+        return RUNNING;
 
-    return (proc_table->n_procs - proc_table->current) ? RUNNING : READY;
+    } else {
+        // Give CPU to next process if one is available
+        return ff_next_process(proc_table) == FINISHED ? READY : ff_run(proc_table, memory, t);
+    }
 }

@@ -1,10 +1,29 @@
+/*
+ * mem.c
+ * 
+ * A set of methods and data structures for handling memory
+ * allocation for an operating system. Written for project 2
+ * of COMP30023 Computer Systems, semester 1 2020.
+ * 
+ * Author: Brodie Daff
+ *         bdaff@student.unimelb.edu.au
+ */ 
+
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
+
+#include <stdio.h>
 
 #include "mem.h"
 
+// Flag for unallocated memory addresses
 #define FREE -1
+
+// Clock cycles required to load a page into memory
+#ifndef PAGE_LOAD_TIME
 #define PAGE_LOAD_TIME 2
+#endif
 
 /*
  * Allocates memory for a new Memory struct and initialises its values.
@@ -28,6 +47,34 @@ Memory *create_memory(int size, int page_size) {
 }
 
 /*
+ * Frees pages in a Memory struct.
+ * 
+ * int *pages:     Array of addresses to be freed.
+ * int n:          Number of pages to be freed.
+ * Memory *memory: Pointer to a memory struct.
+ */
+void free_memory(Process *process, int *pages, int n, Memory *memory) {
+
+    memory->n_evicted = 0;
+
+    for (int i = 0; i < n; i++) {
+
+        // Remove page from process page array
+        for (int j = 0; j < process->n_pages; j++) {
+            process->pages[j] = process->pages[j] == pages[i] ? FREE : process->pages[j];
+        }
+
+        // Free pages from memory
+        memory->pages[pages[i]] = FREE;
+        memory->n_evicted++;
+        memory->evicted = (int*)realloc(memory->evicted, memory->n_evicted * sizeof(int));
+        memory->evicted[memory->n_evicted - 1] = pages[i];
+    }
+
+    process->n_pages -= n;
+}
+
+/*
  * Returns the next available page in memory.
  * 
  * Memory *memory: Pointer to a Memory struct containing pages.
@@ -41,6 +88,39 @@ int next_free(Memory *memory) {
     }
 
     return FREE;
+}
+
+/*
+ * Evicts pages from memory, beginning with the least recently used.
+ * 
+ * ProcTable *proc_table: Pointer to a process table.
+ * Memory *memory:        Pointer to a memory struct.
+ * int n:                 Number of pages required.
+ */
+void make_free(ProcTable *proc_table, Memory *memory, int n) {
+
+    int min_tl = INT_MAX, min_i = 0, freed = 0;
+
+    
+    while (freed < n) {
+
+        // Get the least recently executed process that has pages available
+        for (int i = 0; i < proc_table->n_procs; i++) {
+            if (proc_table->procs[i].tl < min_tl && proc_table->procs[i].n_pages) {
+                min_tl = proc_table->procs[i].tl;
+                min_i = i;
+            }
+        }
+        fprintf(stderr, "%d, %d\n", min_i, proc_table->procs[min_i].n_pages);
+
+        // Increment freed count by how many pages this
+        freed += proc_table->procs[min_i].n_pages;
+
+        free_memory(&proc_table->procs[min_i],
+                    proc_table->procs[min_i].pages,
+                    proc_table->procs[min_i].n_pages,
+                    memory);
+    }
 }
 
 /*
@@ -72,28 +152,36 @@ int allocate_memory(ProcTable *proc_table, Memory *memory) {
 
     if (memory->allocator == UNLIMITED_MEMORY) return RUNNING;
 
+    int next;
+
     // Shorthand
     Process *proc = &proc_table->procs[proc_table->current];
 
-    // Check if more mem needs to be allocated
+    // Check if more memory needs to be allocated
     if (proc->n_pages < proc->mem / memory->page_size) {
 
         // Takes two cycles to load a page to memory
         proc->load_s += 1;
         if (proc->load_s == PAGE_LOAD_TIME) {
+
+            // Reset page load time
             proc->load_s = 0;
-            allocate_page(proc, memory, next_free(memory));
+            
+            // Check if memory needs to be freed to load this process
+            if ((next = next_free(memory)) == FREE) {
+
+                make_free(proc_table,
+                          memory,
+                          (proc->mem / memory->page_size) - proc->n_pages);
+
+                next = next_free(memory);
+            }
+
+            allocate_page(proc, memory, next);
         }
 
         return LOADING;
     }
 
     return RUNNING;
-}
-
-void free_memory(int *pages, int n, Memory *memory) {
-
-    for (int i = 0; i < n; i++) {
-        memory->pages[pages[i]] = FREE;
-    }
 }

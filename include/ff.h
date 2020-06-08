@@ -14,6 +14,7 @@
 
 // Define types and system calls
 #include "sys.h"
+#include "scheduler.h"
 
 /*
  * First-Come-Fisrt-Served process scheduling algorithm.

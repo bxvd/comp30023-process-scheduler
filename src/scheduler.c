@@ -14,13 +14,96 @@
 #include <stdlib.h>
 #include <limits.h>
 
-#include "sys.h"
-#include "mem.h"
+#include "scheduler.h"
 
 #define OPTARGS "f:a:m:s:q:vd"
-#define EPOCH   60
 
-#define ceil(x) (x > (float)((int)x) ? (int)x + 1 : (int)x)
+/*
+ * Handles starting the process and printing output for the
+ * FF scheduling algorithm.
+ * 
+ * ProcTable *proc_table: Pointer to process table.
+ * Memory *memory:        Pointer to memory struct.
+ * int t:                 Time.
+ */
+void simulate_start(ProcTable *proc_table, Memory *memory, int t) {
+
+    // Shorthand variable
+    Process *proc = &proc_table->procs[proc_table->current];
+
+    // Print memory that may have been evicted for this process
+    if (memory->n_evicted) {
+
+        fprintf(stdout, "%d, EVICTED, mem-addresses=[", t);
+
+        for (int i = 0; i < memory->n_evicted - 1; i++) {
+            fprintf(stdout, "%d,", memory->pages[i]);
+        }
+        fprintf(stdout, "%d]\n", memory->pages[memory->n_evicted - 1]);
+
+        // Reset the flag indicating pages have been evicted
+        memory->n_evicted = 0;
+    }
+
+    // Process is about to begin loading
+   // if (proc->status != LOADING) fprintf(stdout, "%d, RUNNING, id=%d, remaining-time=%d", t, proc->id, proc->tr);
+
+    start_process(proc_table, memory, t);
+
+    // Process has finished loading during this cycle
+    if (proc->status == RUNNING) {
+
+        if (proc->tl == t) fprintf(stdout, "%d, RUNNING, id=%d, remaining-time=%d", t, proc->id, proc->tr);
+        
+        // Check if memory allocation is happening
+        if (proc->n_pages) {
+
+            fprintf(stdout,
+                    ", load-time=%d, mem-usage=%d%%, mem-addresses=[",
+                    proc->tm,
+                    ceil(proc->n_pages / (memory->size / memory->page_size)) * 100);
+
+            // Print process' memory addresses
+            for (int i = 0; i < proc->n_pages - 1; i++) {
+                fprintf(stdout, "%d,", proc->pages[i]);
+            }
+            fprintf(stdout, "%d]\n", proc->pages[proc->n_pages - 1]);
+        } else {
+            fprintf(stdout, "\n");
+        }
+    }
+}
+
+/*
+ * Handles finishing the process and printing output for the
+ * FF scheduling algorithm.
+ * 
+ * ProcTable *proc_table: Pointer to process table.
+ * Memory *memory:        Pointer to memory struct.
+ * int t:                 Time.
+ */
+void simulate_finish(ProcTable *proc_table, Memory *memory, int t) {
+
+    // Shorthand variable
+    Process *proc = &proc_table->procs[proc_table->current];
+
+    // Check if memory allocation is happening
+    if (proc->n_pages) {
+
+        fprintf(stdout, "%d, EVICTED, mem-addresses=[", t);
+
+        for (int i = 0; i < proc->n_pages - 1; i++) {
+            fprintf(stdout, "%d,", proc->pages[i]);
+        }
+        fprintf(stdout, "%d]\n", proc->pages[proc->n_pages - 1]);
+    }
+
+    finish_process(proc_table, memory, t);
+
+    proc_table->n_alive--;
+
+    fprintf(stdout, "%d, FINISHED, id=%d, proc-remaining=%d\n", t, proc->id, proc_table->n_alive);
+}
 
 /*
  * Calculates and prints statistics for processes that
@@ -142,7 +225,8 @@ void simulate(Process *procs, int n, ProcTable *proc_table, Memory *memory) {
 
     // Loop as a clock that calls run() on each cycle
     do {
-        //getchar();
+        fprintf(stderr, "%d", t);
+        getchar();
 
         // Time
         t++;
@@ -163,7 +247,7 @@ void simulate(Process *procs, int n, ProcTable *proc_table, Memory *memory) {
 int main(int argc, char **argv) {
     
     int opt, n, scheduler = FF_SCHEDULING, mem_allocator = UNLIMITED_MEMORY,
-        mem_size = 0, quantum = DEFAULT_QUANTUM, verbosity = DEBUG;
+        mem_size = 0, quantum = DEFAULT_QUANTUM, verbosity = NORMAL;
     char *filename;
     ProcTable *proc_table = NULL;
     Process *procs = NULL;

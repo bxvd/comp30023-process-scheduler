@@ -52,15 +52,12 @@ Process *create_process(int id, int mem, int ta, int tj);
 int add_process(ProcTable *proc_table, Process new_proc);
 
 /*
- * Sets a system variable without exposing it.
+ * Performs setup for the current process in a process table
+ * to begin running it.
  * 
- * int variable: enum of settable variables.
- * int value:    Value to set it to.
- */
-void set(int variable, int value);
-
-/*
- * NEEDS DOC
+ * ProcTable *proc_table: Pointer to a process table.
+ * Memory *memory:        Pointer to a memory struct.
+ * int t:                 Time.
  */
 void start_process(ProcTable *proc_table, Memory *memory, int t);
 
@@ -70,7 +67,12 @@ void start_process(ProcTable *proc_table, Memory *memory, int t);
 void pause_process(Process *proc, int t);
 
 /*
- * NEEDS DOC
+ * Destroys and performs cleanup for the current process in a
+ * process table.
+ * 
+ * ProcTable *proc_table: Pointer to a process table.
+ * Memory *memory:        Pointer to a memory struct.
+ * int t:                 Time.
  */
 void finish_process(ProcTable *proc_table, Memory *memory, int t);
 
@@ -78,6 +80,7 @@ void finish_process(ProcTable *proc_table, Memory *memory, int t);
  * Executes one clock cycle on a process table when called.
  * 
  * ProcTable *proc_table: Pointer to a process table.
+ * Memory *memory:        Pointer to a memory struct.
  * int t:                 Time.
  * 
  * Returns int: Enumerated status code.

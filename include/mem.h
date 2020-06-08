@@ -29,6 +29,13 @@ Memory *create_memory(int size, int page_size);
  */
 int allocate_memory(ProcTable *proc_table, Memory *memory);
 
-void free_memory(int *pages, int n, Memory *memory);
+/*
+ * Frees pages in a Memory struct.
+ * 
+ * int *pages:     Array of addresses to be freed.
+ * int n:          Number of pages to be freed.
+ * Memory *memory: Pointer to a memory struct.
+ */
+void free_memory(Process *process, int *pages, int n, Memory *memory);
 
 #endif

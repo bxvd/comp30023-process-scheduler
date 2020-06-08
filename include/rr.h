@@ -2,6 +2,7 @@
 #define RR_H
 
 #include "sys.h"
+#include "scheduler.h"
 
 /*
  * Allocates CPU time to processes according

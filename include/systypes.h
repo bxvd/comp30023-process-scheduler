@@ -2,14 +2,14 @@
 #define SYSTYPES_H
 
 // Status codes
-enum { OK, ERROR, READY, RUNNING, FINISHED, WAITING, LOADING };
+enum status { OK, ERROR, READY, RUNNING, FINISHED, WAITING, LOADING };
 
 // System variables that can be set
-enum { SCHEDULER, MEM_ALLOCATOR, VERBOSITY };
+enum sysvars { SCHEDULER, MEM_ALLOCATOR, VERBOSITY };
 
 // System running modes
-enum { FF_SCHEDULING, RR_SCHEDULING, CUSTOM_SCHEDULING };
-enum { NORMAL, VERBOSE, DEBUG };
+enum scheduler { FF_SCHEDULING, RR_SCHEDULING, CUSTOM_SCHEDULING };
+enum verbosity { NORMAL, VERBOSE, DEBUG };
 
 /*
  * Process struct for use in a process table.
@@ -28,7 +28,7 @@ enum { NORMAL, VERBOSE, DEBUG };
  * int n_pages: Number of pages in memory.
  * int status:  Current state of the process.
  */
-typedef struct {
+typedef struct Process {
     int id, mem, ta, tj, tr, ts, tl, tf, tm, load_s, *pages, n_pages, status;
 } Process;
 
@@ -42,7 +42,7 @@ typedef struct {
  * int quantum:    Quantum to use for scheduling.
  * Process *procs: Array of processes.
  */
-typedef struct {
+typedef struct ProcTable {
     int scheduler, n_procs, n_alive, current, quantum;
     Process *procs;
 } ProcTable;
