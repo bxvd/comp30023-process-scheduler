@@ -8,15 +8,53 @@
  * Author: Brodie Daff
  *         bdaff@student.unimelb.edu.au
  */
-
+#include <stdio.h>
 #include "rr.h"
+
+/*
+ * Updates the current context in the process table.
+ * 
+ * System *sys: Pointer to an OS.
+ * 
+ * returns Status: Enumerated status flag.
+ */
+Status rr_context(System *sys) {
+
+    Status flag = TERMINATED;
+    
+    // Shorthand
+    Process *p = sys->table.p;
+
+    // Initialise to a value to compare with
+    if (sys->table.context == UNDEF) {
+        sys->table.context = 0;
+        flag = READY;
+    }
+
+    // Set context to be the least recently executed or received process
+    for (int i = 0; i < sys->table.n; i++) {
+        if (p[i].status == START || p[i].status == READY) {
+            
+            if (p[i].time.last < p[sys->table.context].time.last) {
+                sys->table.context = i;
+            } else if (p[i].time.last == p[sys->table.context].time.last) {
+                if (p[i].time.arrived > p[sys->table.context].time.arrived) sys->table.context = i;
+            }
+
+            flag = READY;
+        }
+    }
+
+    // Flag if no valid process found
+    return flag;
+}
 
 /*
  * Begins running the process in the current context.
  * 
  * System *sys: Pointer to an OS.
  */
-void rr_start_process(System *sys) {
+void rr_start(System *sys) {
 
     // Shorthand
     Process *p = &sys->table.p[sys->table.context];
@@ -33,7 +71,31 @@ void rr_start_process(System *sys) {
     notify(RUN, *sys);
 }
 
-void rr_finish_process(System *sys) {
+void rr_pause(System *sys) {
+
+    // Shorthand
+    Process *p = &sys->table.p[sys->table.context];
+
+    // Reduce time remaining by time spent processing
+    p->time.remaining -= sys->time - p->time.last;
+    p->time.last = sys->time;
+
+    p->status = READY;
+}
+
+void rr_resume(System *sys) {
+
+    // Shorthand
+    Process *p = &sys->table.p[sys->table.context];
+
+    p->time.last = sys->time;
+
+    p->status = RUNNING;
+
+    notify(RUN, *sys);
+}
+
+void rr_finish(System *sys) {
 
     Process *p = &sys->table.p[sys->table.context];
 
@@ -54,29 +116,45 @@ void rr_finish_process(System *sys) {
  */
 void rr_step(System *sys) {
 
+    int runtime;
+
     switch (sys->status) {
 
         // New process
         case READY:
 
             // Update current context, or stop running if no processes available
-            if (context(sys) == TERMINATED) {
+            if (rr_context(sys) == TERMINATED) {
                 sys->status = TERMINATED;
                 break;
             } 
 
-            rr_start_process(sys);
+            if (sys->table.p[sys->table.context].status == START) {
+                rr_start(sys);
+            } else {
+                rr_resume(sys);
+            }
 
             sys->status = RUNNING;
 
             break;
         
         case RUNNING:
+        
+            // Run only for quantum time limit or time remaining
+            
+            runtime = sys->quantum > sys->table.p[sys->table.context].time.remaining ?
+                      sys->table.p[sys->table.context].time.remaining :
+                      sys->quantum;
 
-            // Only one process will run at a time during FF scheduling
-            sys->time += sys->table.p[sys->table.context].time.job;
-
-            rr_finish_process(sys);
+            sys->time += runtime;
+            
+            // Check if process has finished
+            if ((sys->table.p[sys->table.context].time.remaining - runtime)) {
+                rr_pause(sys);
+            } else {
+                rr_finish(sys);
+            }
 
             sys->status = READY;
 
@@ -84,15 +162,4 @@ void rr_step(System *sys) {
         
         default: break;
     }
-    
-    // Load process
-    // Begin process
-
-    // Run process
-
-    // Unload process
-    // Finish process
-
-    // Next process
-    
 }

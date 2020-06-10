@@ -54,6 +54,7 @@ PTable *create_table(Process *p, int n) {
     PTable *table = (PTable*)calloc(1, sizeof(PTable));
 
     table->status = INIT;
+    table->context = UNDEF;
     table->p = p;
     table->n = table->n_alive = n;
 
@@ -67,8 +68,9 @@ PTable *create_table(Process *p, int n) {
  * int t:      Time.
  */
 void activate(Process *p, int t) {
+    //fprintf(stderr, "%d, ACTIVATED, id=%d\n", t, p->id);
     p->status = START;
-    p->time.last = t;
+    p->time.last = p->time.arrived;
 }
 
 /*
@@ -86,30 +88,6 @@ void get_processes(System *sys) {
             activate(&p[i], sys->time);
         }
     }
-}
-
-/*
- * Updates the current context in the process table.
- * 
- * System *sys: Pointer to an OS.
- * 
- * returns Status: Enumerated status flag.
- */
-Status context(System *sys) {
-    
-    // Shorthand
-    Process *p = sys->table.p;
-
-    // Set context to be the next immediately available process
-    for (int i = 0; i < sys->table.n; i++) {
-        if (p[i].status == START || p[i].status == READY) {
-            sys->table.context = i;
-            return READY;
-        }
-    }
-
-    // No valid process found
-    return TERMINATED;
 }
 
 System *start(Process *p, int n, Scheduler s, Allocator a, int m, int q) {
@@ -150,6 +128,7 @@ System *start(Process *p, int n, Scheduler s, Allocator a, int m, int q) {
     // Setup system variables
     sys->scheduler = s;
     sys->allocator = a;
+    sys->quantum = q == UNDEF ? DEFAULT_QUANTUM : q;
     sys->time = 0;
 
     // We are go for launch
@@ -157,7 +136,7 @@ System *start(Process *p, int n, Scheduler s, Allocator a, int m, int q) {
 
     // Cycle clock until all processes have been terminated
     while (sys->status != TERMINATED) {
-
+        //getchar();
         // Check if any new processes have arrived
         get_processes(sys);
 

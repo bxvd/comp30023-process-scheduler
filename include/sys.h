@@ -13,6 +13,7 @@
 #define SYS_H
 
 #define PAGE_SIZE 4
+#define DEFAULT_QUANTUM 10
 
 // Flag for checking uninitialised variables
 #define UNDEF -1
@@ -108,15 +109,6 @@ typedef struct System {
 #include "rr.h"
 
 Process *create_process(int id, int mem, int t_arrived, int t_job);
-
-/*
- * Updates the current context in the process table.
- * 
- * System *sys: Pointer to an OS.
- * 
- * returns Status: Enumerated status flag.
- */
-Status context(System *sys);
 
 System *start(Process *p, int n, Scheduler s, Allocator a, int m, int q);
 

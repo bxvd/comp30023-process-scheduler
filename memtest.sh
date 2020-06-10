@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 
 make s=1
-echo
-echo
-echo ./scheduler $(< tests/testcase1.in)
-./scheduler $(< tests/testcase1.in)
 # echo
 # echo
-# echo ./scheduler $(< tests/testcase2.in)
-# ./scheduler $(< tests/testcase2.in)
+# echo ./scheduler $(< tests/testcase1.in)
+# ./scheduler $(< tests/testcase1.in)
+echo
+echo
+echo ./scheduler $(< tests/testcase2.in)
+./scheduler $(< tests/testcase2.in)
 # echo
 # echo
 # echo ./scheduler $(< tests/testcase3.in)

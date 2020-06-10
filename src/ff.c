@@ -12,11 +12,35 @@
 #include "ff.h"
 
 /*
+ * Updates the current context in the process table.
+ * 
+ * System *sys: Pointer to an OS.
+ * 
+ * returns Status: Enumerated status flag.
+ */
+Status ff_context(System *sys) {
+    
+    // Shorthand
+    Process *p = sys->table.p;
+
+    // Set context to be the next immediately available process
+    for (int i = 0; i < sys->table.n; i++) {
+        if (p[i].status == START || p[i].status == READY) {
+            sys->table.context = i;
+            return READY;
+        }
+    }
+
+    // No valid process found
+    return TERMINATED;
+}
+
+/*
  * Begins running the process in the current context.
  * 
  * System *sys: Pointer to an OS.
  */
-void ff_start_process(System *sys) {
+void ff_start(System *sys) {
 
     // Shorthand
     Process *p = &sys->table.p[sys->table.context];
@@ -33,7 +57,7 @@ void ff_start_process(System *sys) {
     notify(RUN, *sys);
 }
 
-void ff_finish_process(System *sys) {
+void ff_finish(System *sys) {
 
     Process *p = &sys->table.p[sys->table.context];
 
@@ -60,12 +84,12 @@ void ff_step(System *sys) {
         case READY:
 
             // Update current context, or stop running if no processes available
-            if (context(sys) == TERMINATED) {
+            if (ff_context(sys) == TERMINATED) {
                 sys->status = TERMINATED;
                 break;
             } 
 
-            ff_start_process(sys);
+            ff_start(sys);
 
             sys->status = RUNNING;
 
@@ -76,7 +100,7 @@ void ff_step(System *sys) {
             // Only one process will run at a time during FF scheduling
             sys->time += sys->table.p[sys->table.context].time.job;
 
-            ff_finish_process(sys);
+            ff_finish(sys);
 
             sys->status = READY;
 
@@ -84,15 +108,4 @@ void ff_step(System *sys) {
         
         default: break;
     }
-    
-    // Load process
-    // Begin process
-
-    // Run process
-
-    // Unload process
-    // Finish process
-
-    // Next process
-    
 }
