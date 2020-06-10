@@ -9,163 +9,156 @@
  *         bdaff@student.unimelb.edu.au
  */ 
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include <stdio.h>
+
 #include "sys.h"
 
-#define INIT -1
+int compare(const void *a, const void *b) {
 
-/*
- * Allocates memory for a new ProcTable and initialises its values.
- * 
- * Returns ProcTable*: Pointer to the new ProcTable.
- */
-ProcTable *create_proc_table() {
+    const Process *p1 = a, *p2 = b;
+    
+    if (p1->time.arrived < p2->time.arrived) return -1;
+    if (p1->time.arrived == p2->time.arrived) {
+        if (p1->id < p2->id) return -1;
+        if (p1->id == p2->id) return 0;
+    }
+    return 1;
+}
 
-    ProcTable *proc_table = (ProcTable*)calloc(1, sizeof(ProcTable));
-    proc_table->n_procs = 0;
-    proc_table->current = 0;
-    proc_table->quantum = DEFAULT_QUANTUM;
+Process *create_process(int id, int mem, int t_arrived, int t_job) {
 
-    return proc_table;
+    Process *p = (Process*)calloc(1, sizeof(Process));
+    
+    p->status = INIT;
+    p->id = id;
+
+    p->mem = mem;
+    p->n_pages = mem / PAGE_SIZE;
+    p->pages = (Page**)calloc(1, p->n_pages * sizeof(void*));
+
+    p->time.arrived = t_arrived;
+    p->time.job = p->time.remaining = t_job;
+    p->time.last = p->time.started = p->time.finished = UNDEF;
+
+    return p;
+}
+
+PTable *create_table(Process *p, int n) {
+
+    // Sort processes in increasing order of arrival time and ID
+    qsort(p, n, sizeof(Process), compare);
+
+    PTable *table = (PTable*)calloc(1, sizeof(PTable));
+
+    table->status = INIT;
+    table->p = p;
+    table->n = table->n_alive = n;
+
+    return table;
 }
 
 /*
- * Creates a new process and initialise its values.
+ * Receives a newly arrived process.
  * 
- * int id:  Process ID (must be unique).
- * int mem: Amount of memory required by the process in KB.
- * int ta:  Arrival time of the instruction to create the process.
- * int tj:  The process' job time (total CPU time required).
- * 
- * Returns Process*: Pointer to the newly created process.
+ * Process *p: Pointer to process.
+ * int t:      Time.
  */
-Process *create_process(int id, int mem, int ta, int tj) {
-
-    Process *proc = (Process*)calloc(1, sizeof(Process));
-    proc->id = id;
-    proc->mem = mem;
-    proc->ts = INIT;
-    proc->tl = proc->ta = ta;
-    proc->tr = proc->tj = tj;
-    proc->tm = proc->load_s = 0;
-    proc->pages = NULL;
-    proc->n_pages = 0;
-    proc->status = WAITING;
-
-    return proc;
+void activate(Process *p, int t) {
+    p->status = START;
+    p->time.last = t;
 }
 
 /*
- * Adds a process to the process table.
+ * Checks for newly arrived processes.
  * 
- * ProcTable *proc_table: Pointer to a process table.
- * Process new_proc:      Details of process to be added.
- * 
- * Returns int: Evaluates to true if there is an error, false otherwise.
+ * System *sys: Pointer to the OS.
  */
-int add_process(ProcTable *proc_table, Process new_proc) {
-
-    // Increase process table size
-    proc_table->n_procs++;
-    proc_table->n_alive++;
-    proc_table->procs = (Process*)realloc(proc_table->procs, proc_table->n_procs * sizeof(Process));
-
-    // Copy process details to the process table
-    memmove(&proc_table->procs[proc_table->n_procs - 1], &new_proc, sizeof(Process));
-
-    return proc_table->procs == NULL ? ERROR : OK;
-}
-
-/*
- * Performs setup for the current process in a process table
- * to begin running it.
- * 
- * ProcTable *proc_table: Pointer to a process table.
- * Memory *memory:        Pointer to a memory struct.
- * int t:                 Time.
- */
-void start_process(ProcTable *proc_table, Memory *memory, int t) {
+void get_processes(System *sys) {
 
     // Shorthand
-    Process *proc = &proc_table->procs[proc_table->current];
-    int _status = proc->status;
+    Process *p = sys->table.p;
 
-    // Initialise memory
-    if (proc->status == WAITING) {
-        proc->pages = (int*)calloc(1, (proc->mem / memory->page_size) * sizeof(int));
+    for (int i = 0; i < sys->table.n; i++) {
+        if (p[i].time.arrived == sys->time) {
+            activate(&p[i], sys->time);
+        }
     }
-
-    // Use clock cycle for memory management
-    proc->status = allocate_memory(proc_table, memory);
-
-    // Check if process status has changed
-    proc->tl = _status == proc->status ? proc->ts : t;
-
-    // Indicate process initialisation using the start time
-    proc->ts = proc->ts == INIT ? t : proc->ts; /* FLAG NEEDED */
-}
-
-void pause_process(Process *proc, int t) {
-
-    proc->status = READY;
-    proc->tl = t;
 }
 
 /*
- * Destroys and performs cleanup for the current process in a
- * process table.
+ * Updates the current context in the process table.
  * 
- * ProcTable *proc_table: Pointer to a process table.
- * Memory *memory:        Pointer to a memory struct.
- * int t:                 Time.
+ * System *sys: Pointer to an OS.
+ * 
+ * returns Status: Enumerated status flag.
  */
-void finish_process(ProcTable *proc_table, Memory *memory, int t) {
-
+Status context(System *sys) {
+    
     // Shorthand
-    Process *proc = &proc_table->procs[proc_table->current];
+    Process *p = sys->table.p;
 
-    // Remove process from memory
-    free_memory(proc, proc->pages, proc->n_pages, memory);
-
-    proc->status = FINISHED;
-    proc->tf = t;
-    proc->tl = t;
-}
-
-void print_proc_table(ProcTable *proc_table, int t) {
-
-    fprintf(stderr, "Process table at time %d -> %d process(es), %d alive, currently running process %d\n", t, proc_table->n_procs, proc_table->n_alive, proc_table->procs[proc_table->current].id);
-    fprintf(stderr, "PID | TR | TA | TJ | TL | TF | Status\n----|----|----|----|----|----|-------\n");
-
-    for (int i = 0; i < proc_table->n_procs; i++) {
-        Process proc = proc_table->procs[i];
-        fprintf(stderr, "%3d |%3d |%3d |%3d |%3d |%3d |%3d\n", proc.id, proc.tr, proc.ta, proc.tj, proc.tl, proc.tf, proc.status);
-    }
-}
-
-/*
- * Executes one clock cycle on a process table when called.
- * 
- * ProcTable *proc_table: Pointer to a process table.
- * Memory *memory:        Pointer to a memory struct.
- * int t:                 Time.
- * 
- * Returns int: Enumerated status code.
- */
-int run(ProcTable *proc_table, Memory *memory, int t) {
-
-    //print_proc_table(proc_table, t);
-
-    // Waiting for processes
-    if (!proc_table->n_procs) return READY;
-
-    switch (proc_table->scheduler) {
-        case FF_SCHEDULING: return ff_run(proc_table, memory, t);
-        case RR_SCHEDULING: return rr_run(proc_table, memory, t);
+    // Set context to be the next immediately available process
+    for (int i = 0; i < sys->table.n; i++) {
+        if (p[i].status == INIT || p[i].status == READY) {
+            sys->table.context = i;
+            return READY;
+        }
     }
 
-    return ERROR;
+    // No valid process found
+    return TERMINATED;
+}
+
+System *start(Process *p, int n, Scheduler s, Allocator a, int m, int q) {
+
+    /* DEBUG */
+    if (1) {
+        char *scheduler, *allocator;
+
+        switch (s) {
+            case FF: scheduler = "First-Come-First-Served"; break;
+            case RR: scheduler = "Round-Robin"; break;
+            case CS: scheduler = "Custom"; break;
+        }
+
+        switch (a) {
+            case U: allocator = "Unlimited"; break;
+            case SWP: allocator = "Swapping"; break;
+            case V: allocator = "Virtual"; break;
+            case CM: allocator = "Custom"; break;
+        }
+
+        fprintf(stderr,
+                "Scheduler: %s\nAllocator: %s\nMem size: %d\nQuantum: %d\nProcesses: %d\n",
+                scheduler, allocator, m, q, n);
+
+        for (int i = 0; i < n; i++) {
+            fprintf(stderr, "%d, %d, %d, %d\n", p[i].id, p[i].time.arrived, p[i].time.job, p[i].mem);
+        }
+    }
+    
+    System *sys = (System*)calloc(1, sizeof(System));
+
+    // Setup process table
+    PTable *table = create_table(p, n);
+    memmove(&sys->table, table, sizeof(PTable));
+    free(table);
+
+    // Setup system variables
+    sys->scheduler = s;
+    sys->allocator = a;
+    sys->time = 0;
+
+    // We are go for launch
+    sys->status = READY;
+
+    // Cycle clock until all processes have been terminated
+    while (sys->status != TERMINATED) {
+        ff_step(sys);
+    }
+
+    return sys;
 }

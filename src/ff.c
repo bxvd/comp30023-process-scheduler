@@ -9,133 +9,90 @@
  *         bdaff@student.unimelb.edu.au
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include "ff.h"
 
 /*
- * Handles starting the process and printing output for the
- * FF scheduling algorithm.
+ * Begins running the process in the current context.
  * 
- * ProcTable *proc_table: Pointer to process table.
- * Memory *memory:        Pointer to memory struct.
- * int t:                 Time.
+ * System *sys: Pointer to an OS.
  */
-void ff_start(ProcTable *proc_table, Memory *memory, int t) {
+void start_process(System *sys) {
 
-    // Shorthand variable
-    Process *proc = &proc_table->procs[proc_table->current];
+    // Shorthand
+    Process *p = &sys->table.p[sys->table.context];
 
-    // Process is about to begin loading
-    if (proc->status != LOADING) fprintf(stdout, "%d, RUNNING, id=%d, remaining-time=%d", t, proc->id, proc->tr);
+    // Handle memory
+    switch (sys->allocator) {
+        default: break;
+    }
 
-    start_process(proc_table, memory, t);
+    p->time.started = p->time.last = sys->time;
 
-    // Process has finished loading during this cycle
-    if (proc->status == RUNNING) {
+    p->status = RUNNING;
+
+    notify(RUN, *sys);
+}
+
+void finish_process(System *sys) {
+
+    Process *p = &sys->table.p[sys->table.context];
+
+    p->time.remaining = 0;
+    p->time.finished = p->time.last = sys->time;
+
+    p->status = TERMINATED;
+
+    sys->table.n_alive--;
+
+    notify(FINISH, *sys);
+}
+
+/*
+ * Handles a clock cycle for the OS.
+ * 
+ * System *sys: Pointer to the OS.
+ */
+void ff_step(System *sys) {
+
+    switch (sys->status) {
+
+        // New process
+        case READY:
+
+            // Update current context, or stop running if no processes available
+            if (context(sys) == TERMINATED) {
+                sys->status = TERMINATED;
+                break;
+            } 
+
+            start_process(sys);
+
+            sys->status = RUNNING;
+
+            break;
         
-        // Check if memory allocation is happening
-        if (proc->n_pages) {
+        case RUNNING:
 
-            fprintf(stdout,
-                    ", load-time=%d, mem-usage=%d%%, mem-addresses=[",
-                    proc->tm,
-                    ceil(proc->n_pages / (memory->size / memory->page_size)) * 100);
+            // Only one process will run at a time during FF scheduling
+            sys->time += sys->table.p[sys->table.context].time.job;
 
-            // Print process' memory addresses
-            for (int i = 0; i < proc->n_pages - 1; i++) {
-                fprintf(stdout, "%d,", proc->pages[i]);
-            }
-            fprintf(stdout, "%d]\n", proc->pages[proc->n_pages - 1]);
-        } else {
-            fprintf(stdout, "\n");
-        }
+            finish_process(sys);
+
+            sys->status = READY;
+
+            break;
+        
+        default: break;
     }
-}
-
-/*
- * Handles finishing the process and printing output for the
- * FF scheduling algorithm.
- * 
- * ProcTable *proc_table: Pointer to process table.
- * Memory *memory:        Pointer to memory struct.
- * int t:                 Time.
- */
-void ff_finish(ProcTable *proc_table, Memory *memory, int t) {
-
-    // Shorthand variable
-    Process *proc = &proc_table->procs[proc_table->current];
-
-    // Check if memory allocation is happening
-    if (proc->n_pages) {
-
-        fprintf(stdout, "%d, EVICTED, mem-addresses=[", t);
-
-        for (int i = 0; i < proc->n_pages - 1; i++) {
-            fprintf(stdout, "%d,", proc->pages[i]);
-        }
-        fprintf(stdout, "%d]\n", proc->pages[proc->n_pages - 1]);
-    }
-
-    finish_process(proc_table, memory, t);
-
-    proc_table->current++;
-
-    fprintf(stdout, "%d, FINISHED, id=%d, proc-remaining=%d\n", t, proc->id, proc_table->n_procs - proc_table->current);
-}
-
-/*
- * Sets the current process in a process table according to
- * First-Come-First-Served scheduling.
- * 
- * ProcTable *proc_table: Pointer to a process table.
- * 
- * Returns int: Enumerated status code indicating if a valid next process
- *              is available.
- */
-int ff_next_process(ProcTable *proc_table) {
-
-    if (proc_table->current < proc_table->n_procs - 1) {
-
-        proc_table->current++;
-        return READY;
-    }
-
-    return FINISHED;
-}
-
-/*
- * First-Come-Fisrt-Served process scheduling algorithm.
- * 
- * ProcTable *proc_table: Pointer to process table.
- * Memory *memory:        Pointer to memory struct.
- * int t:                 Time.
- * 
- * Returns int: Enumerated status flag.
- */
-int ff_run(ProcTable *proc_table, Memory *memory, int t) {
-
-    // Shorthand variable
-    Process *proc = &proc_table->procs[proc_table->current];
-
-    if (proc->status != RUNNING) {
-        simulate_start(proc_table, memory, t);
-    } else if (!proc->tr) {
-        simulate_finish(proc_table, memory, t);
-    }
-
-    // Use this clock cycle for memory loading
-    if (proc->status == LOADING) return LOADING;
     
-    if (proc->status == RUNNING) {
-        // Reduce remaining time for the running process by one cycle
-        proc->tr--;
-        return RUNNING;
+    // Load process
+    // Begin process
 
-    } else {
-        // Give CPU to next process if one is available
-        return ff_next_process(proc_table) == FINISHED ? READY : ff_run(proc_table, memory, t);
-    }
+    // Run process
+
+    // Unload process
+    // Finish process
+
+    // Next process
+    
 }

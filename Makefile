@@ -1,7 +1,7 @@
 SDIR = ./src
 IDIR = ./include
 
-SRC := scheduler sys mem ff rr
+SRC := scheduler sys ff
 OBJ := $(SRC:%=$(SDIR)/%.o)
 SRC := $(SRC:%=$(SDIR)/%.c)
 

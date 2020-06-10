@@ -1,50 +1,90 @@
 #ifndef SYSTYPES_H
 #define SYSTYPES_H
 
-// Status codes
-enum status { OK, ERROR, READY, RUNNING, FINISHED, WAITING, LOADING };
+typedef enum status { ERROR, INIT, START, READY, LOADING, RUNNING, TERMINATED } Status;
+typedef enum scheduler { FF, RR, CS } Scheduler;
+typedef enum allocator { U, SWP, V, CM } Allocator;
 
-// System variables that can be set
-enum sysvars { SCHEDULER, MEM_ALLOCATOR, VERBOSITY };
+/*
+ * Process time struct for tracking process metadata and
+ * for calculating running statistics.
+ * 
+ * int arrived:   Arrival time of process.
+ * int job:       Total time required to complete process.
+ * int remaining: Remaining time required to complete process.
+ * int started:   Time that the process began running.
+ * int last:      Time of the process' last state change.
+ * int finished:  Time that the process was completed.
+ */
+typedef struct PTime {
+    int arrived, job, remaining, started, last, finished;
+} PTime;
 
-// System running modes
-enum scheduler { FF_SCHEDULING, RR_SCHEDULING, CUSTOM_SCHEDULING };
-enum verbosity { NORMAL, VERBOSE, DEBUG };
+/*
+ * Memory page.
+ * 
+ * int pid: Process ID that this page is allocated to.
+ * int pix: Index within the the allocated process' array of Pages.
+ */
+typedef struct Page {
+    int pid, pix;
+} Page;
 
 /*
  * Process struct for use in a process table.
  * 
- * int id:      Process ID.
- * int mem:     Memory required (KB).
- * int ta:      Time arrived.
- * int tj:      Job time.
- * int tr:      Time remaining.
- * int ts;      Time started.
- * int tl;      Time of last state change.
- * int tf:      Time finished.
- * int tm:      Time taken to load memory.
- * int load_s:  Page load status as a percentage (int between 0 and 100).
- * int *pages:  Memory addresses allocated to the process.
- * int n_pages: Number of pages in memory.
- * int status:  Current state of the process.
+ * Status status: Current state of the process.
+ * PTime time:    Process Time struct to track process metadata.
+ * Page **pages:  Array of memory addresses allocated to the process.
+ * int id:        Process ID.
+ * int mem:       Memory required (in KB).
+ * int n_pages:   Number of pages in memory.
  */
 typedef struct Process {
-    int id, mem, ta, tj, tr, ts, tl, tf, tm, load_s, *pages, n_pages, status;
+    Status status;
+    PTime time;
+    Page **pages;
+    int id, mem, n_pages;
 } Process;
 
 /*
- * Process table struct.
+ * Encapsulates all process data.
  * 
- * int scheduler:  Enumerated values of process scheduling algorithms available.
- * int n_procs:    Number of processes in table.
- * int n_alive:    Number of processes in READY or RUNNING state.
- * int current:    Index of process currently running.
- * int quantum:    Quantum to use for scheduling.
- * Process *procs: Array of processes.
+ * Status status: Current state of the process.
+ * Process *p:    Array of processes.
+ * int n:         Number of processes in table.
+ * int context:   Index of process in the current context.
  */
-typedef struct ProcTable {
-    int scheduler, n_procs, n_alive, current, quantum;
-    Process *procs;
-} ProcTable;
+typedef struct PTable {
+    Status status;
+    Process *p;
+    int n, context;
+} PTable;
+
+/*
+ * A de-facto OS structure. Contains all data and state tracking needed
+ * for running the system.
+ * 
+ * Status status:       Current state of the system.
+ * PTable table:        Process table.
+ * Page *pages:         Memory pages;
+ * Scheduler scheduler: Process scheduling algorithm to use.
+ * Allocator allocator: Memory allocation algorithm to use.
+ * Process *context:    Pointer to the current process for easy access.
+ * int time:            Current system time.
+ * int quantum:         Quantum time limit for a process (if applicable).
+ * int mem_size:        System memory size (in KB).
+ * int page_size:       Memory page size (in KB).
+ * int n_pages:         Number of memory pages.
+ */
+typedef struct System {
+    Status status;
+    PTable table;
+    Page *pages;
+    Scheduler scheduler;
+    Allocator allocator;
+    Process *context;
+    int time, quantum, mem_size, page_size, n_pages;
+} System;
 
 #endif

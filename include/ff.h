@@ -12,19 +12,6 @@
 #ifndef FF_H
 #define FF_H
 
-// Define types and system calls
 #include "sys.h"
-#include "scheduler.h"
-
-/*
- * First-Come-Fisrt-Served process scheduling algorithm.
- * 
- * ProcTable *proc_table: Pointer to process table.
- * Memory *memory:        Pointer to memory struct.
- * int t:                 Time.
- * 
- * Returns int: Enumerated status flag.
- */
-int ff_run(ProcTable *proc_table, Memory *memory, int t);
 
 #endif
