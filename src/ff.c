@@ -16,7 +16,7 @@
  * 
  * System *sys: Pointer to an OS.
  */
-void start_process(System *sys) {
+void ff_start_process(System *sys) {
 
     // Shorthand
     Process *p = &sys->table.p[sys->table.context];
@@ -33,7 +33,7 @@ void start_process(System *sys) {
     notify(RUN, *sys);
 }
 
-void finish_process(System *sys) {
+void ff_finish_process(System *sys) {
 
     Process *p = &sys->table.p[sys->table.context];
 
@@ -65,7 +65,7 @@ void ff_step(System *sys) {
                 break;
             } 
 
-            start_process(sys);
+            ff_start_process(sys);
 
             sys->status = RUNNING;
 
@@ -76,7 +76,7 @@ void ff_step(System *sys) {
             // Only one process will run at a time during FF scheduling
             sys->time += sys->table.p[sys->table.context].time.job;
 
-            finish_process(sys);
+            ff_finish_process(sys);
 
             sys->status = READY;
 

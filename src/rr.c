@@ -7,80 +7,92 @@
  * 
  * Author: Brodie Daff
  *         bdaff@student.unimelb.edu.au
- */ 
-
-#include <stdio.h>
-#include <limits.h>
+ */
 
 #include "rr.h"
 
 /*
- * Sets the current process in a process table according to
- * Round-Robin scheduling.
+ * Begins running the process in the current context.
  * 
- * ProcTable *proc_table: Pointer to a process table.
- * 
- * Returns int: Enumerated status code indicating if a valid next process
- *              is available.
+ * System *sys: Pointer to an OS.
  */
-int rr_next_process(ProcTable *proc_table) {
+void rr_start_process(System *sys) {
 
-    // Get process with longest elapsed time since last state change
-    int min_tl = INT_MAX;
+    // Shorthand
+    Process *p = &sys->table.p[sys->table.context];
 
-    for (int i = 0; i < proc_table->n_procs; i++) {
-
-        if (proc_table->procs[i].status == READY || proc_table->procs[i].status == WAITING) {
-
-            if (proc_table->procs[i].tl < min_tl) {
-
-                // Track process with the lowest timestamp for last state change
-                min_tl = proc_table->procs[i].tl;
-                proc_table->current = i;
-
-            } else if (proc_table->procs[i].tl == min_tl) {
-
-                /* If two or more processes have the same elapsed time since their last
-                 * state change, choose the one with the earliest arrival time */
-                proc_table->current = proc_table->procs[proc_table->current].ta < proc_table->procs[i].ta
-                                      ? i
-                                      : proc_table->current;
-            }
-        }
+    // Handle memory
+    switch (sys->allocator) {
+        default: break;
     }
 
-    return min_tl == INT_MAX ? FINISHED : READY;
+    p->time.started = p->time.last = sys->time;
+
+    p->status = RUNNING;
+
+    notify(RUN, *sys);
 }
 
-int rr_run(ProcTable *proc_table, Memory *memory, int t) {
+void rr_finish_process(System *sys) {
 
-    // Shorthand variables
-    Process *proc = &proc_table->procs[proc_table->current];
-    int q = proc_table->quantum;
+    Process *p = &sys->table.p[sys->table.context];
 
-    // Start process
-    if (proc->status != RUNNING) {
-        simulate_start(proc_table, memory, t);
-    } else if (!proc->tr) {
-        simulate_finish(proc_table, memory, t);
-    }
+    p->time.remaining = 0;
+    p->time.finished = p->time.last = sys->time;
 
-    // Use this clock cycle for memory loading
-    if (proc->status == LOADING) return LOADING;
+    p->status = TERMINATED;
 
-    // Boolean
-    int in_quantum = t < (proc->tl + q);
+    sys->table.n_alive--;
 
-    // Process is still running but out of quantum time
-    if (proc->status == RUNNING && !in_quantum) pause_process(proc, t);
+    notify(FINISH, *sys);
+}
 
-    if (proc->status == RUNNING) {
-        // Reduce remaining time for the running process by one cycle
-        proc->tr--;
-        return RUNNING;
+/*
+ * Handles a clock cycle for the OS.
+ * 
+ * System *sys: Pointer to the OS.
+ */
+void rr_step(System *sys) {
+
+    switch (sys->status) {
+
+        // New process
+        case READY:
+
+            // Update current context, or stop running if no processes available
+            if (context(sys) == TERMINATED) {
+                sys->status = TERMINATED;
+                break;
+            } 
+
+            rr_start_process(sys);
+
+            sys->status = RUNNING;
+
+            break;
         
-    } else {
-        // Give CPU to next process if one is available
-        return rr_next_process(proc_table) == FINISHED ? READY : rr_run(proc_table, memory, t);
+        case RUNNING:
+
+            // Only one process will run at a time during FF scheduling
+            sys->time += sys->table.p[sys->table.context].time.job;
+
+            rr_finish_process(sys);
+
+            sys->status = READY;
+
+            break;
+        
+        default: break;
     }
+    
+    // Load process
+    // Begin process
+
+    // Run process
+
+    // Unload process
+    // Finish process
+
+    // Next process
+    
 }

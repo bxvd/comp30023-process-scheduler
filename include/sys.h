@@ -12,8 +12,6 @@
 #ifndef SYS_H
 #define SYS_H
 
-#include "scheduler.h"
-
 #define PAGE_SIZE 4
 
 // Flag for checking uninitialised variables
@@ -105,21 +103,21 @@ typedef struct System {
     int time, quantum, mem_size, page_size, n_pages;
 } System;
 
+#include "scheduler.h"
+#include "ff.h"
+#include "rr.h"
+
 Process *create_process(int id, int mem, int t_arrived, int t_job);
 
-System *start(Process *p, int n, Scheduler s, Allocator a, int m, int q);
-
 /*
- * Begins running the process in the current context.
+ * Updates the current context in the process table.
  * 
  * System *sys: Pointer to an OS.
+ * 
+ * returns Status: Enumerated status flag.
  */
-void start_process(System *sys);
+Status context(System *sys);
 
-void finish_process(System *sys);
-
-void notify(Notification n, System sys);
-
-void print_stats(System *sys);
+System *start(Process *p, int n, Scheduler s, Allocator a, int m, int q);
 
 #endif

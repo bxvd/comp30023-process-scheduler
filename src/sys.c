@@ -82,7 +82,7 @@ void get_processes(System *sys) {
     Process *p = sys->table.p;
 
     for (int i = 0; i < sys->table.n; i++) {
-        if (p[i].time.arrived == sys->time) {
+        if (p[i].status == INIT && p[i].time.arrived <= sys->time) {
             activate(&p[i], sys->time);
         }
     }
@@ -102,7 +102,7 @@ Status context(System *sys) {
 
     // Set context to be the next immediately available process
     for (int i = 0; i < sys->table.n; i++) {
-        if (p[i].status == INIT || p[i].status == READY) {
+        if (p[i].status == START || p[i].status == READY) {
             sys->table.context = i;
             return READY;
         }
@@ -157,7 +157,16 @@ System *start(Process *p, int n, Scheduler s, Allocator a, int m, int q) {
 
     // Cycle clock until all processes have been terminated
     while (sys->status != TERMINATED) {
-        ff_step(sys);
+
+        // Check if any new processes have arrived
+        get_processes(sys);
+
+        switch (sys->scheduler) {
+            case FF: ff_step(sys); break;
+            case RR: rr_step(sys); break;
+            case CS: break;
+            default: break;
+        }
     }
 
     return sys;

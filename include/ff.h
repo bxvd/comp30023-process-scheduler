@@ -1,7 +1,7 @@
 /*
  * ff.c
  * 
- * An First-Come-First-Served process scheduling algorithm
+ * A First-Come-First-Served process scheduling algorithm
  * to run for a process scheduling simulator. Written for
  * project 2 of COMP30023 Computer Systems, semester 1 2020.
  * 
@@ -13,5 +13,12 @@
 #define FF_H
 
 #include "sys.h"
+
+/*
+ * Handles a clock cycle for the OS.
+ * 
+ * System *sys: Pointer to the OS.
+ */
+void ff_step(System *sys);
 
 #endif
