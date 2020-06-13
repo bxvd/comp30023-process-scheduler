@@ -161,7 +161,7 @@ void process_finish(System *sys) {
 
     sys->table.n_alive--;
 
-    evict_process(sys, p->id, p->n_pages);
+    if (sys->allocator != U) evict_process(sys, p->id, p->n_pages);
 
     notify(FINISH, *sys, 0);
 }
