@@ -4,5 +4,9 @@ scheduler
 Makefiled
 Makefiles
 .DS_Store
-*.txt
 tests
+*.sh
+processes.txt
+reordering.txt
+rr_memoryoverlap.txt
+timejumps.txt
