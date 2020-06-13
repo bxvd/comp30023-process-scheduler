@@ -57,7 +57,8 @@ PTable *create_table(Process *p, int n) {
     table->status = INIT;
     table->context = UNDEF;
     table->p = p;
-    table->n = table->n_alive = n;
+    table->n = n;
+    table->n_alive = 0;
 
     return table;
 }
@@ -86,6 +87,7 @@ void get_processes(System *sys) {
     for (int i = 0; i < sys->table.n; i++) {
         if (p[i].status == INIT && p[i].time.arrived <= sys->time) {
             activate(&p[i]);
+            sys->table.n_alive++;
         }
     }
 }
@@ -127,6 +129,9 @@ void process_pause(System *sys) {
     p->time.last = sys->time;
 
     p->status = READY;
+
+    // Check if any new processes have arrived
+    get_processes(sys);
 }
 
 void process_resume(System *sys) {
@@ -163,37 +168,14 @@ void process_finish(System *sys) {
 
     if (sys->allocator != U) evict_process(sys, p->id, p->n_pages);
 
+    // Check if any new processes have arrived
+    get_processes(sys);
+
     notify(FINISH, *sys, 0);
 }
 
 System *start(Process *p, int n, Scheduler s, Allocator a, int m, int q) {
 
-    /* DEBUG */
-    if (1) {
-        char *scheduler, *allocator;
-
-        switch (s) {
-            case FF: scheduler = "First-Come-First-Served"; break;
-            case RR: scheduler = "Round-Robin"; break;
-            case CS: scheduler = "Custom"; break;
-        }
-
-        switch (a) {
-            case U: allocator = "Unlimited"; break;
-            case SWP: allocator = "Swapping"; break;
-            case V: allocator = "Virtual"; break;
-            case CM: allocator = "Custom"; break;
-        }
-
-        fprintf(stderr,
-                "Scheduler: %s\nAllocator: %s\nMem size: %d\nQuantum: %d\nProcesses: %d\n",
-                scheduler, allocator, m, q, n);
-
-        for (int i = 0; i < n; i++) {
-            fprintf(stderr, "%d, %d, %d, %d\n", p[i].id, p[i].time.arrived, p[i].time.job, p[i].mem);
-        }
-    }
-    
     System *sys = (System*)calloc(1, sizeof(System));
 
     // Setup process table
@@ -213,14 +195,14 @@ System *start(Process *p, int n, Scheduler s, Allocator a, int m, int q) {
     sys->n_pages = m / PAGE_SIZE;
     sys->time = 0;
 
+    // Check if any processes are ready
+    get_processes(sys);
+
     // We are go for launch
     sys->status = READY;
 
     // Cycle clock until all processes have been terminated
     while (sys->status != TERMINATED) {
-
-        // Check if any new processes have arrived
-        get_processes(sys);
 
         switch (sys->scheduler) {
             case FF: ff_step(sys); break;
