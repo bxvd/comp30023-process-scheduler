@@ -86,14 +86,18 @@ void get_processes(System *sys) {
 
     for (int i = 0; i < sys->table.n; i++) {
         if (p[i].status == INIT && p[i].time.arrived <= sys->time) {
+
             activate(&p[i]);
+
             sys->table.n_alive++;
+            sys->status = sys->status == TERMINATED ? READY : sys->status;
         }
     }
 }
 
 /*
- * Begins running the process in the current context.
+ * Begins running the process in the current context and evitcts
+ * memory to allow it to run.
  * 
  * System *sys: Pointer to an OS.
  */
@@ -119,6 +123,11 @@ void process_start(System *sys) {
     sys->time += p->time.load;
 }
 
+/*
+ * Pauses the currently running process.
+ * 
+ * System *sys: Pointer to an OS struct.
+ */
 void process_pause(System *sys) {
 
     // Shorthand
@@ -134,6 +143,11 @@ void process_pause(System *sys) {
     get_processes(sys);
 }
 
+/*
+ * Resumes a paused process.
+ * 
+ * System *sys: Pointer to an OS struct.
+ */
 void process_resume(System *sys) {
 
     // Shorthand
@@ -156,6 +170,11 @@ void process_resume(System *sys) {
     sys->time += p->time.load;
 }
 
+/*
+ * Performs termination of a process and evicts its memory.
+ * 
+ * System *sys: Pointer to an OS struct.
+ */
 void process_finish(System *sys) {
 
     Process *p = &sys->table.p[sys->table.context];
@@ -172,6 +191,24 @@ void process_finish(System *sys) {
     get_processes(sys);
 
     notify(FINISH, *sys, 0);
+}
+
+/* Determines whether to keep the system running, i.e.
+ * if not all processes have been received.
+ * 
+ * System sys: An OS struct.
+ * 
+ * Returns int: Evaluates to true if system should be kept alive,
+ *              false otherwise.
+ */
+int keep_alive(System sys) {
+
+    // Check status flags of processes
+    for (int i = 0; i < sys.table.n; i++) {
+        if (sys.table.p[i].status != TERMINATED) return 1;
+    }
+
+    return 0;
 }
 
 System *start(Process *p, int n, Scheduler s, Allocator a, int m, int q) {
@@ -195,14 +232,16 @@ System *start(Process *p, int n, Scheduler s, Allocator a, int m, int q) {
     sys->n_pages = m / PAGE_SIZE;
     sys->time = 0;
 
-    // Check if any processes are ready
-    get_processes(sys);
-
     // We are go for launch
     sys->status = READY;
 
     // Cycle clock until all processes have been terminated
-    while (sys->status != TERMINATED) {
+    while (sys->status != TERMINATED || keep_alive(*sys)) {
+
+        // Check if any processes are ready
+        get_processes(sys);
+
+        if (sys->status == TERMINATED) sys->time++;
 
         switch (sys->scheduler) {
             case FF: ff_step(sys); break;

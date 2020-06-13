@@ -28,10 +28,14 @@
 // Flag for checking uninitialised variables
 #define UNDEF -1
 
+/**** ENUM DEFINITIONS ****/
+
 typedef enum status { ERROR, INIT, START, READY, LOADING, RUNNING, TERMINATED } Status;
 typedef enum scheduler { FF, RR, CS } Scheduler;
 typedef enum allocator { U, SWP, V, CM } Allocator;
 typedef enum notification { RUN, FINISH, EVICT } Notification;
+
+/**** STRUCT DEFINITIONS ****/
 
 /*
  * Process time struct for tracking process metadata and
@@ -115,11 +119,14 @@ typedef struct System {
     int time, quantum, mem_size, page_size, n_pages;
 } System;
 
+/**** HEADER FILES ****/
+
 #include "scheduler.h"
 #include "mem.h"
 #include "ff.h"
 #include "rr.h"
-//#include "swap.h"
+
+/**** FUNCTION DEFINITIONS ****/
 
 Process *create_process(int id, int mem, int t_arrived, int t_job);
 
@@ -138,16 +145,32 @@ void evict(System *sys, int pid, int n);
 int oldest(System sys);
 
 /*
- * Begins running the process in the current context.
+ * Begins running the process in the current context and evitcts
+ * memory to allow it to run.
  * 
  * System *sys: Pointer to an OS.
  */
 void process_start(System *sys);
 
+/*
+ * Pauses the currently running process.
+ * 
+ * System *sys: Pointer to an OS struct.
+ */
 void process_pause(System *sys);
 
+/*
+ * Resumes a paused process.
+ * 
+ * System *sys: Pointer to an OS struct.
+ */
 void process_resume(System *sys);
 
+/*
+ * Performs termination of a process and evicts its memory.
+ * 
+ * System *sys: Pointer to an OS struct.
+ */
 void process_finish(System *sys);
 
 #endif
