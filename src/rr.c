@@ -8,7 +8,7 @@
  * Author: Brodie Daff
  *         bdaff@student.unimelb.edu.au
  */
-#include <stdio.h>
+
 #include "rr.h"
 
 /*
@@ -50,66 +50,6 @@ Status rr_context(System *sys) {
 }
 
 /*
- * Begins running the process in the current context.
- * 
- * System *sys: Pointer to an OS.
- */
-void rr_start(System *sys) {
-
-    // Shorthand
-    Process *p = &sys->table.p[sys->table.context];
-
-    // Handle memory
-    switch (sys->allocator) {
-        default: break;
-    }
-
-    p->time.started = p->time.last = sys->time;
-
-    p->status = RUNNING;
-
-    notify(RUN, *sys);
-}
-
-void rr_pause(System *sys) {
-
-    // Shorthand
-    Process *p = &sys->table.p[sys->table.context];
-
-    // Reduce time remaining by time spent processing
-    p->time.remaining -= sys->time - p->time.last;
-    p->time.last = sys->time;
-
-    p->status = READY;
-}
-
-void rr_resume(System *sys) {
-
-    // Shorthand
-    Process *p = &sys->table.p[sys->table.context];
-
-    p->time.last = sys->time;
-
-    p->status = RUNNING;
-
-    notify(RUN, *sys);
-}
-
-void rr_finish(System *sys) {
-
-    Process *p = &sys->table.p[sys->table.context];
-
-    p->time.remaining = 0;
-    p->time.finished = p->time.last = sys->time;
-
-    p->status = TERMINATED;
-
-    sys->table.n_alive--;
-
-    notify(FINISH, *sys);
-}
-
-/*
  * Handles a clock cycle for the OS.
  * 
  * System *sys: Pointer to the OS.
@@ -130,9 +70,9 @@ void rr_step(System *sys) {
             } 
 
             if (sys->table.p[sys->table.context].status == START) {
-                rr_start(sys);
+                process_start(sys);
             } else {
-                rr_resume(sys);
+                process_resume(sys);
             }
 
             sys->status = RUNNING;
@@ -140,7 +80,7 @@ void rr_step(System *sys) {
             break;
         
         case RUNNING:
-        
+
             // Run only for quantum time limit or time remaining
             
             runtime = sys->quantum > sys->table.p[sys->table.context].time.remaining ?
@@ -151,9 +91,9 @@ void rr_step(System *sys) {
             
             // Check if process has finished
             if ((sys->table.p[sys->table.context].time.remaining - runtime)) {
-                rr_pause(sys);
+                process_pause(sys);
             } else {
-                rr_finish(sys);
+                process_finish(sys);
             }
 
             sys->status = READY;

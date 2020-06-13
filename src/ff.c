@@ -36,42 +36,6 @@ Status ff_context(System *sys) {
 }
 
 /*
- * Begins running the process in the current context.
- * 
- * System *sys: Pointer to an OS.
- */
-void ff_start(System *sys) {
-
-    // Shorthand
-    Process *p = &sys->table.p[sys->table.context];
-
-    // Handle memory
-    switch (sys->allocator) {
-        default: break;
-    }
-
-    p->time.started = p->time.last = sys->time;
-
-    p->status = RUNNING;
-
-    notify(RUN, *sys);
-}
-
-void ff_finish(System *sys) {
-
-    Process *p = &sys->table.p[sys->table.context];
-
-    p->time.remaining = 0;
-    p->time.finished = p->time.last = sys->time;
-
-    p->status = TERMINATED;
-
-    sys->table.n_alive--;
-
-    notify(FINISH, *sys);
-}
-
-/*
  * Handles a clock cycle for the OS.
  * 
  * System *sys: Pointer to the OS.
@@ -89,7 +53,7 @@ void ff_step(System *sys) {
                 break;
             } 
 
-            ff_start(sys);
+            process_start(sys);
 
             sys->status = RUNNING;
 
@@ -100,7 +64,7 @@ void ff_step(System *sys) {
             // Only one process will run at a time during FF scheduling
             sys->time += sys->table.p[sys->table.context].time.job;
 
-            ff_finish(sys);
+            process_finish(sys);
 
             sys->status = READY;
 

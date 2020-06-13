@@ -13,6 +13,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <limits.h>
+#include <stdarg.h>
 
 #include "scheduler.h"
 
@@ -108,32 +109,83 @@ int get_procs_from_file(char *filename, Process **p) {
     return n;
 }
 
-void notify(Notification n, System sys) {
+void notify(Notification n, System sys, int var, ...) {
 
-    Process context = sys.table.p[sys.table.context];
+    int *values = NULL, n_values = 0;
+
+    // Optional int array passed in
+    if (var) {
+        va_list ap;
+        va_start(ap, var);
+        values = va_arg(ap, int*);
+        n_values = va_arg(ap, int);
+        va_end(ap);
+    }
+
+    Process p = sys.table.p[sys.table.context];
 
     switch (n) {
 
         case RUN:
             fprintf(stdout,
-                    "%d, RUNNING, id=%d, remaining-time=%d%s",
+                    "%d, RUNNING, id=%d, remaining-time=%d",
                     sys.time,
-                    context.id,
-                    context.time.remaining,
-                    sys.allocator == U ? "\n" : "");
+                    p.id,
+                    p.time.remaining);
+            
+            if (sys.allocator != U) {
+
+                fprintf(stdout,
+                        ", load-time=%d, mem-usage=%d%%, mem-addresses=[",
+                        p.time.load,
+                        (int)(100 * ((float)p.n_pages / sys.n_pages)));
+                
+                // Look through addresses to find the ones allocated to the process
+                int n = 0;
+                for (int i = 0; i < sys.n_pages; i++) {
+                    if (sys.pages[i].pid == p.id) {
+                        
+                        fprintf(stdout, "%d", i);
+
+                        n++;
+                        if (n < p.n_pages) fprintf(stdout, ",");
+                    }
+                }
+
+                fprintf(stdout, "]");
+            }
+
+            fprintf(stdout, "\n");
+
             break;
 
         case FINISH:
             fprintf(stdout,
                     "%d, FINISHED, id=%d, proc-remaining=%d\n",
                     sys.time,
-                    context.id,
+                    p.id,
                     sys.table.n_alive);
             break;
+        
+        case EVICT:
+
+            fprintf(stdout, "%d, EVICTED, mem-addresses=[", sys.time);
+
+            if (n_values) {
+
+                fprintf(stdout, "%d", values[0]);
+                for (int i = 1; i < n_values; i++) {
+                    fprintf(stdout, ",%d", values[i]);
+                }
+                fprintf(stdout, "]\n");
+            }
 
         default:
             break;
     }
+
+    // malloc'd memory used for var arg
+    if (values != NULL) free(values);
 }
 
 int main(int argc, char **argv) {

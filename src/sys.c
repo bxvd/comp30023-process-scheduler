@@ -36,12 +36,13 @@ Process *create_process(int id, int mem, int t_arrived, int t_job) {
     p->id = id;
 
     p->mem = mem;
-    p->n_pages = mem / PAGE_SIZE;
-    p->pages = (Page**)calloc(1, p->n_pages * sizeof(void*));
+    p->n_pages = 0;
+    p->pages = (Page**)calloc(1, (mem / PAGE_SIZE) * sizeof(void*));
 
     p->time.arrived = t_arrived;
     p->time.job = p->time.remaining = t_job;
     p->time.last = p->time.started = p->time.finished = UNDEF;
+    p->time.load = 0;
 
     return p;
 }
@@ -65,10 +66,9 @@ PTable *create_table(Process *p, int n) {
  * Receives a newly arrived process.
  * 
  * Process *p: Pointer to process.
- * int t:      Time.
  */
-void activate(Process *p, int t) {
-    //fprintf(stderr, "%d, ACTIVATED, id=%d\n", t, p->id);
+void activate(Process *p) {
+
     p->status = START;
     p->time.last = p->time.arrived;
 }
@@ -85,9 +85,85 @@ void get_processes(System *sys) {
 
     for (int i = 0; i < sys->table.n; i++) {
         if (p[i].status == INIT && p[i].time.arrived <= sys->time) {
-            activate(&p[i], sys->time);
+            activate(&p[i]);
         }
     }
+}
+
+/*
+ * Begins running the process in the current context.
+ * 
+ * System *sys: Pointer to an OS.
+ */
+void process_start(System *sys) {
+
+    // Shorthand
+    Process *p = &sys->table.p[sys->table.context];
+
+    // Handle memory
+    switch (sys->allocator) {
+
+        case SWP: swap(sys); break;
+        case V: virtual(sys); break;
+        case CM: break;
+        default: break;
+    }
+
+    p->time.started = p->time.last = sys->time;
+    p->status = RUNNING;
+
+    notify(RUN, *sys, 0);
+
+    sys->time += p->time.load;
+}
+
+void process_pause(System *sys) {
+
+    // Shorthand
+    Process *p = &sys->table.p[sys->table.context];
+
+    // Reduce time remaining by time spent processing
+    p->time.remaining -= sys->time - p->time.last - p->time.load;
+    p->time.last = sys->time;
+
+    p->status = READY;
+}
+
+void process_resume(System *sys) {
+
+    // Shorthand
+    Process *p = &sys->table.p[sys->table.context];
+
+    // Handle memory
+    switch (sys->allocator) {
+
+        case SWP: swap(sys); break;
+        case V: virtual(sys); break;
+        case CM: break;
+        default: break;
+    }
+
+    p->time.started = p->time.last = sys->time;
+    p->status = RUNNING;
+
+    notify(RUN, *sys, 0);
+
+    sys->time += p->time.load;
+}
+
+void process_finish(System *sys) {
+
+    Process *p = &sys->table.p[sys->table.context];
+
+    p->time.remaining = 0;
+    p->time.finished = p->time.last = sys->time;
+    p->status = TERMINATED;
+
+    sys->table.n_alive--;
+
+    evict_process(sys, p->id, p->n_pages);
+
+    notify(FINISH, *sys, 0);
 }
 
 System *start(Process *p, int n, Scheduler s, Allocator a, int m, int q) {
@@ -125,10 +201,16 @@ System *start(Process *p, int n, Scheduler s, Allocator a, int m, int q) {
     memmove(&sys->table, table, sizeof(PTable));
     free(table);
 
+    // Setup memory
+    sys->pages = create_memory(m, PAGE_SIZE);
+
     // Setup system variables
     sys->scheduler = s;
     sys->allocator = a;
     sys->quantum = q == UNDEF ? DEFAULT_QUANTUM : q;
+    sys->mem_size = m;
+    sys->page_size = PAGE_SIZE;
+    sys->n_pages = m / PAGE_SIZE;
     sys->time = 0;
 
     // We are go for launch
@@ -136,7 +218,7 @@ System *start(Process *p, int n, Scheduler s, Allocator a, int m, int q) {
 
     // Cycle clock until all processes have been terminated
     while (sys->status != TERMINATED) {
-        //getchar();
+
         // Check if any new processes have arrived
         get_processes(sys);
 
@@ -147,6 +229,8 @@ System *start(Process *p, int n, Scheduler s, Allocator a, int m, int q) {
             default: break;
         }
     }
+
+    free(sys->pages);
 
     return sys;
 }

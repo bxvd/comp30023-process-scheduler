@@ -7,6 +7,6 @@
 
 #define ceil(x) (x > (float)((int)x) ? (int)x + 1 : (int)x)
 
-void notify(Notification n, System sys);
+void notify(Notification n, System sys, int var, ...);
 
 #endif

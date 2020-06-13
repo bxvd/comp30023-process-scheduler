@@ -12,8 +12,18 @@
 #ifndef SYS_H
 #define SYS_H
 
+#ifndef PAGE_SIZE
 #define PAGE_SIZE 4
+#endif
+
+
+#define PAGE_LOAD_TIME 2
+#define MIN_MEM        16
+#define MIN_PAGES      (MIN_MEM / PAGE_SIZE)
+
+#ifndef DEFAULT_QUANTUM
 #define DEFAULT_QUANTUM 10
+#endif
 
 // Flag for checking uninitialised variables
 #define UNDEF -1
@@ -33,9 +43,10 @@ typedef enum notification { RUN, FINISH, EVICT } Notification;
  * int started:   Time that the process began running.
  * int last:      Time of the process' last state change.
  * int finished:  Time that the process was completed.
+ * int load:      Time most recently spent loading pages into memory.
  */
 typedef struct PTime {
-    int arrived, job, remaining, started, last, finished;
+    int arrived, job, remaining, started, last, finished, load;
 } PTime;
 
 /*
@@ -105,11 +116,38 @@ typedef struct System {
 } System;
 
 #include "scheduler.h"
+#include "mem.h"
 #include "ff.h"
 #include "rr.h"
+//#include "swap.h"
 
 Process *create_process(int id, int mem, int t_arrived, int t_job);
 
 System *start(Process *p, int n, Scheduler s, Allocator a, int m, int q);
+
+void evict(System *sys, int pid, int n);
+
+/*
+ * Finds the least recently allocated process in the
+ * process table.
+ * 
+ * System sys: OS data structure.
+ * 
+ * Returns int: index in the process table for the oldest process.
+ */
+int oldest(System sys);
+
+/*
+ * Begins running the process in the current context.
+ * 
+ * System *sys: Pointer to an OS.
+ */
+void process_start(System *sys);
+
+void process_pause(System *sys);
+
+void process_resume(System *sys);
+
+void process_finish(System *sys);
 
 #endif
