@@ -1,34 +1,26 @@
 #ifndef MEM_H
 #define MEM_H
+#include <stdio.h>
+#include "sys.h"
 
-#include "memtypes.h"
-#include "systypes.h"
+Page *create_memory(int size, int page_size);
 
-// Page size in KB
-#ifndef PAGE_SIZE
-#define PAGE_SIZE 4
-#endif
+void allocate(System *sys, int target);
 
-/*
- * Allocates memory for a new Memory struct and initialises its values;
- * 
- * int size: The size of the memory to be available in KB.
- * 
- * Returns Memory*: Pointer to the new Memory struct.
- */
-Memory *create_memory(int size, int page_size);
+void evict_process(System *sys, int pid, int n);
 
 /*
- * Uses clock cycle to allocate a page to memory for the current process
- * indicated in proc_table.
+ * Finds the least recently allocated process in the
+ * process table.
  * 
- * ProcTable *proc_table: Pointer to a process table.
- * Memory *memory:        Pointer to a memory struct.
+ * System sys: OS data structure.
  * 
- * returns int: Enumerated status flag.
+ * Returns int: index in the process table for the oldest process.
  */
-int allocate_memory(ProcTable *proc_table, Memory *memory);
+int oldest(System sys);
 
-void free_memory(int *pages, int n, Memory *memory);
+void swap(System *sys);
+
+void virtual(System *sys);
 
 #endif

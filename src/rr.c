@@ -1,67 +1,105 @@
-#include <stdio.h>
-#include <limits.h>
+/*
+ * rr.c
+ * 
+ * A Round-Robin process scheduling algorithm to run for a
+ * process scheduling simulator. Written for project 2 of
+ * COMP30023 Computer Systems, semester 1 2020.
+ * 
+ * Author: Brodie Daff
+ *         bdaff@student.unimelb.edu.au
+ */
 
 #include "rr.h"
 
-int next_process(ProcTable *proc_table) {
+/*
+ * Updates the current context in the process table.
+ * 
+ * System *sys: Pointer to an OS.
+ * 
+ * returns Status: Enumerated status flag.
+ */
+Status rr_context(System *sys) {
 
-    // Get process with longest elapsed time since last state change
-    int min_tl = INT_MAX;
+    Status flag = TERMINATED;
+    
+    // Shorthand
+    Process *p = sys->table.p;
 
-    for (int i = 0; i < proc_table->n_procs; i++) {
+    // Initialise to a value to compare with
+    if (sys->table.context == UNDEF) {
+        sys->table.context = 0;
+        flag = READY;
+    }
 
-        if (proc_table->procs[i].status == READY) {
-
-            if (proc_table->procs[i].tl < min_tl) {
-
-                min_tl = proc_table->procs[i].tl;
-                proc_table->current = i;
-            } else if (proc_table->procs[i].tl == min_tl) {
-
-                // Choose latest arrival time for processes with same elapsed time since state change
-                proc_table->current = proc_table->procs[proc_table->current].ta < proc_table->procs[i].ta ? i : proc_table->current;
+    // Set context to be the least recently executed or received process
+    for (int i = 0; i < sys->table.n; i++) {
+        if (p[i].status == START || p[i].status == READY) {
+            
+            if (p[i].time.last < p[sys->table.context].time.last) {
+                sys->table.context = i;
+            } else if (p[i].time.last == p[sys->table.context].time.last) {
+                if (p[i].time.arrived > p[sys->table.context].time.arrived) sys->table.context = i;
             }
+
+            flag = READY;
         }
     }
 
-    return min_tl == INT_MAX ? FINISHED : READY;
+    // Flag if no valid process found
+    return flag;
 }
 
-int rr_run(ProcTable *proc_table, Memory *memory, int t) {
 /*
-    // Shorthand variables
-    Process *proc = &proc_table->procs[proc_table->current];
-    int q = proc_table->quantum;
+ * Handles a clock cycle for the OS.
+ * 
+ * System *sys: Pointer to the OS.
+ */
+void rr_step(System *sys) {
 
-    // Start process
-    if (proc->status == READY) {
+    int runtime;
 
-        start_process(proc, memory, t);
-        fprintf(stdout, "%d, RUNNING, id=%d, remaining-time=%d\n", t, proc->id, proc->tr);
+    switch (sys->status) {
+
+        // New process
+        case READY:
+
+            // Update current context, or stop running if no processes available
+            if (rr_context(sys) == TERMINATED) {
+                sys->status = TERMINATED;
+                break;
+            } 
+
+            if (sys->table.p[sys->table.context].status == START) {
+                process_start(sys);
+            } else {
+                process_resume(sys);
+            }
+
+            sys->status = RUNNING;
+
+            break;
+        
+        case RUNNING:
+
+            // Run only for quantum time limit or time remaining
+            
+            runtime = sys->quantum > sys->table.p[sys->table.context].time.remaining ?
+                      sys->table.p[sys->table.context].time.remaining :
+                      sys->quantum;
+
+            sys->time += runtime;
+            
+            // Check if process has finished
+            if ((sys->table.p[sys->table.context].time.remaining - runtime)) {
+                process_pause(sys);
+            } else {
+                process_finish(sys);
+            }
+
+            sys->status = READY;
+
+            break;
+        
+        default: break;
     }
-
-    // Boolean
-    int in_quantum = t < (proc->tl + q);
-
-    // Process has completed job time
-    if (!proc->tr) {
-
-        finish_process(proc, t);
-        proc_table->n_alive--;
-
-        fprintf(stdout, "%d, FINISHED, id=%d, proc-remaining=%d\n", t, proc->id, proc_table->n_alive);
-    }
-
-    // Process is still running but out of quantum time
-    if (proc->status == RUNNING && !in_quantum) pause_process(proc, t);
-
-    // Give CPU to next process if one is available
-    if (proc->status != RUNNING) {
-        return next_process(proc_table) == FINISHED ? READY : rr_run(proc_table, memory, t);
-    }
-
-    // Give CPU to current process
-    proc->tr--;
-*/
-    return RUNNING;
 }

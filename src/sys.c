@@ -9,111 +9,249 @@
  *         bdaff@student.unimelb.edu.au
  */ 
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include <stdio.h>
+
 #include "sys.h"
 
-ProcTable *create_proc_table() {
+int compare(const void *a, const void *b) {
 
-    ProcTable *proc_table = (ProcTable*)calloc(1, sizeof(ProcTable));
-    proc_table->n_procs = 0;
-    proc_table->current = 0;
-    proc_table->quantum = DEFAULT_QUANTUM;
-
-    return proc_table;
+    const Process *p1 = a, *p2 = b;
+    
+    if (p1->time.arrived < p2->time.arrived) return -1;
+    if (p1->time.arrived == p2->time.arrived) {
+        if (p1->id < p2->id) return -1;
+        if (p1->id == p2->id) return 0;
+    }
+    return 1;
 }
 
-Process *create_process(int id, int mem, int ta, int tj) {
+Process *create_process(int id, int mem, int t_arrived, int t_job) {
 
-    Process *proc = (Process*)calloc(1, sizeof(Process));
-    proc->id = id;
-    proc->mem = mem;
-    proc->ts = -1;
-    proc->tl = proc->ta = ta;
-    proc->tr = proc->tj = tj;
-    proc->tm = proc->load_s = 0;
-    proc->pages = NULL;
-    proc->n_pages = 0;
-    proc->status = WAITING;
+    Process *p = (Process*)calloc(1, sizeof(Process));
+    
+    p->status = INIT;
+    p->id = id;
 
-    return proc;
+    p->mem = mem;
+    p->n_pages = 0;
+    p->pages = (Page**)calloc(1, (mem / PAGE_SIZE) * sizeof(void*));
+
+    p->time.arrived = t_arrived;
+    p->time.job = p->time.remaining = t_job;
+    p->time.last = p->time.started = p->time.finished = UNDEF;
+    p->time.load = 0;
+
+    return p;
 }
 
-int add_process(ProcTable *proc_table, Process new_proc) {
+PTable *create_table(Process *p, int n) {
 
-    // Increase process table size
-    proc_table->n_procs++;
-    proc_table->n_alive++;
-    proc_table->procs = (Process*)realloc(proc_table->procs, proc_table->n_procs * sizeof(Process));
+    // Sort processes in increasing order of arrival time and ID
+    qsort(p, n, sizeof(Process), compare);
 
-    // Copy process details to the process table
-    memmove(&proc_table->procs[proc_table->n_procs - 1], &new_proc, sizeof(Process));
+    PTable *table = (PTable*)calloc(1, sizeof(PTable));
 
-    return proc_table->procs == NULL ? ERROR : OK;
+    table->status = INIT;
+    table->context = UNDEF;
+    table->p = p;
+    table->n = n;
+    table->n_alive = 0;
+
+    return table;
 }
 
-void start_process(ProcTable *proc_table, Memory *memory, int t) {
+/*
+ * Receives a newly arrived process.
+ * 
+ * Process *p: Pointer to process.
+ */
+void activate(Process *p) {
+
+    p->status = START;
+    p->time.last = p->time.arrived;
+}
+
+/*
+ * Checks for newly arrived processes.
+ * 
+ * System *sys: Pointer to the OS.
+ */
+void get_processes(System *sys) {
 
     // Shorthand
-    Process *proc = &proc_table->procs[proc_table->current];
-    int _status = proc->status;
+    Process *p = sys->table.p;
 
-    // Initialise memory
-    if (proc->status == WAITING) {
-        proc->pages = (int*)calloc(1, (proc->mem / memory->page_size) * sizeof(int));
+    for (int i = 0; i < sys->table.n; i++) {
+        if (p[i].status == INIT && p[i].time.arrived <= sys->time) {
+
+            activate(&p[i]);
+
+            sys->table.n_alive++;
+            sys->status = sys->status == TERMINATED ? READY : sys->status;
+        }
     }
-
-    // Use clock cycle for memory management
-    proc->status = allocate_memory(proc_table, memory);
-
-    // Check if process status has changed
-    proc->tl = _status == proc->status ? proc->ts : t;
-
-    // Indicate process initialisation using the start time
-    proc->ts = proc->ts == -1 ? t : proc->ts; /* FLAG NEEDED */
 }
 
-void pause_process(Process *proc, int t) {
-
-    proc->status = READY;
-    proc->tl = t;
-}
-
-void finish_process(ProcTable *proc_table, Memory *memory, int t) {
+/*
+ * Begins running the process in the current context and evitcts
+ * memory to allow it to run.
+ * 
+ * System *sys: Pointer to an OS.
+ */
+void process_start(System *sys) {
 
     // Shorthand
-    Process *proc = &proc_table->procs[proc_table->current];
+    Process *p = &sys->table.p[sys->table.context];
 
-    free_memory(proc->pages, proc->n_pages, memory);
-    proc->status = FINISHED;
-    proc->tf = t;
-    proc->tl = t;
-}
+    // Handle memory
+    switch (sys->allocator) {
 
-void print_proc_table(ProcTable *proc_table, int t) {
-
-    fprintf(stderr, "Process table at time %d -> %d process(es), %d alive, currently running process %d\n", t, proc_table->n_procs, proc_table->n_alive, proc_table->procs[proc_table->current].id);
-    fprintf(stderr, "PID | TR | TA | TJ | TL | TF | Status\n----|----|----|----|----|----|-------\n");
-
-    for (int i = 0; i < proc_table->n_procs; i++) {
-        Process proc = proc_table->procs[i];
-        fprintf(stderr, "%3d |%3d |%3d |%3d |%3d |%3d |%3d\n", proc.id, proc.tr, proc.ta, proc.tj, proc.tl, proc.tf, proc.status);
-    }
-}
-
-int run(ProcTable *proc_table, Memory *memory, int t) {
-
-    //print_proc_table(proc_table, t);
-
-    // Waiting for processes
-    if (!proc_table->n_procs) return READY;
-
-    switch (proc_table->scheduler) {
-        case FF_SCHEDULING: return ff_run(proc_table, memory, t);
-        case RR_SCHEDULING: return rr_run(proc_table, memory, t);
+        case SWP: swap(sys); break;
+        case V: virtual(sys); break;
+        case CM: break;
+        default: break;
     }
 
-    return ERROR;
+    p->time.started = p->time.last = sys->time;
+    p->status = RUNNING;
+
+    notify(RUN, *sys, 0);
+
+    sys->time += p->time.load;
+}
+
+/*
+ * Pauses the currently running process.
+ * 
+ * System *sys: Pointer to an OS struct.
+ */
+void process_pause(System *sys) {
+
+    // Shorthand
+    Process *p = &sys->table.p[sys->table.context];
+
+    // Reduce time remaining by time spent processing
+    p->time.remaining -= sys->time - p->time.last - p->time.load;
+    p->time.last = sys->time;
+
+    p->status = READY;
+
+    // Check if any new processes have arrived
+    get_processes(sys);
+}
+
+/*
+ * Resumes a paused process.
+ * 
+ * System *sys: Pointer to an OS struct.
+ */
+void process_resume(System *sys) {
+
+    // Shorthand
+    Process *p = &sys->table.p[sys->table.context];
+
+    // Handle memory
+    switch (sys->allocator) {
+
+        case SWP: swap(sys); break;
+        case V: virtual(sys); break;
+        case CM: break;
+        default: break;
+    }
+
+    p->time.started = p->time.last = sys->time;
+    p->status = RUNNING;
+
+    notify(RUN, *sys, 0);
+
+    sys->time += p->time.load;
+}
+
+/*
+ * Performs termination of a process and evicts its memory.
+ * 
+ * System *sys: Pointer to an OS struct.
+ */
+void process_finish(System *sys) {
+
+    Process *p = &sys->table.p[sys->table.context];
+
+    p->time.remaining = 0;
+    p->time.finished = p->time.last = sys->time;
+    p->status = TERMINATED;
+
+    sys->table.n_alive--;
+
+    if (sys->allocator != U) evict_process(sys, p->id, p->n_pages);
+
+    // Check if any new processes have arrived
+    get_processes(sys);
+
+    notify(FINISH, *sys, 0);
+}
+
+/* Determines whether to keep the system running, i.e.
+ * if not all processes have been received.
+ * 
+ * System sys: An OS struct.
+ * 
+ * Returns int: Evaluates to true if system should be kept alive,
+ *              false otherwise.
+ */
+int keep_alive(System sys) {
+
+    // Check status flags of processes
+    for (int i = 0; i < sys.table.n; i++) {
+        if (sys.table.p[i].status != TERMINATED) return 1;
+    }
+
+    return 0;
+}
+
+System *start(Process *p, int n, Scheduler s, Allocator a, int m, int q) {
+
+    System *sys = (System*)calloc(1, sizeof(System));
+
+    // Setup process table
+    PTable *table = create_table(p, n);
+    memmove(&sys->table, table, sizeof(PTable));
+    free(table);
+
+    // Setup memory
+    sys->pages = create_memory(m, PAGE_SIZE);
+
+    // Setup system variables
+    sys->scheduler = s;
+    sys->allocator = a;
+    sys->quantum = q == UNDEF ? DEFAULT_QUANTUM : q;
+    sys->mem_size = m;
+    sys->page_size = PAGE_SIZE;
+    sys->n_pages = m / PAGE_SIZE;
+    sys->time = 0;
+
+    // We are go for launch
+    sys->status = READY;
+
+    // Cycle clock until all processes have been terminated
+    while (sys->status != TERMINATED || keep_alive(*sys)) {
+
+        // Check if any processes are ready
+        get_processes(sys);
+
+        if (sys->status == TERMINATED) sys->time++;
+
+        switch (sys->scheduler) {
+            case FF: ff_step(sys); break;
+            case RR: rr_step(sys); break;
+            case CS: break;
+            default: break;
+        }
+    }
+
+    free(sys->pages);
+
+    return sys;
 }

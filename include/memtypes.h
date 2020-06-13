@@ -2,7 +2,7 @@
 #define MEMTYPES_H
 
 // System running modes
-enum { UNLIMITED_MEMORY, SWAPPING_X_MEMORY, VIRTUAL_MEMORY, CUSTOM_MEMORY };
+enum allocator { UNLIMITED_MEMORY, SWAPPING_X_MEMORY, VIRTUAL_MEMORY, CUSTOM_MEMORY };
 
 /*
  * Memory struct consisting of an array of ints, with the array
@@ -13,9 +13,11 @@ enum { UNLIMITED_MEMORY, SWAPPING_X_MEMORY, VIRTUAL_MEMORY, CUSTOM_MEMORY };
  * int size:      Size of the memory in KB.
  * int page_size: Size in KB of each page.
  * int *pages:    Array of pages containing PID of its allocation.
+ * int *evicted:  Pages most recently evicted in a single instruction.
+ * int n_evicted: Number of pages most recently evicted in a single instruction.
  */
-typedef struct {
-    int allocator, size, page_size, *pages;
+typedef struct Memory {
+    int allocator, size, page_size, *pages, *evicted, n_evicted;
 } Memory;
 
 #endif

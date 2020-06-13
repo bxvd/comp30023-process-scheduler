@@ -12,76 +12,165 @@
 #ifndef SYS_H
 #define SYS_H
 
-#include "systypes.h"
-#include "mem.h"
-#include "rr.h"
-#include "ff.h"
+#ifndef PAGE_SIZE
+#define PAGE_SIZE 4
+#endif
 
-// Use the following default values if none specified
+
+#define PAGE_LOAD_TIME 2
+#define MIN_MEM        16
+#define MIN_PAGES      (MIN_MEM / PAGE_SIZE)
+
 #ifndef DEFAULT_QUANTUM
 #define DEFAULT_QUANTUM 10
 #endif
 
-/*
- * Allocates memory for a new ProcTable and initialises its values.
- * 
- * Returns ProcTable*: Pointer to the new ProcTable.
- */
-ProcTable *create_proc_table();
+// Flag for checking uninitialised variables
+#define UNDEF -1
+
+/**** ENUM DEFINITIONS ****/
+
+typedef enum status { ERROR, INIT, START, READY, LOADING, RUNNING, TERMINATED } Status;
+typedef enum scheduler { FF, RR, CS } Scheduler;
+typedef enum allocator { U, SWP, V, CM } Allocator;
+typedef enum notification { RUN, FINISH, EVICT } Notification;
+
+/**** STRUCT DEFINITIONS ****/
 
 /*
- * Creates a new process and initialise its values.
+ * Process time struct for tracking process metadata and
+ * for calculating running statistics.
  * 
- * int id:  Process ID (must be unique).
- * int mem: Amount of memory required by the process in KB.
- * int ta:  Arrival time of the instruction to create the process.
- * int tj:  The process' job time (total CPU time required).
- * 
- * Returns Process*: Pointer to the newly created process.
+ * int arrived:   Arrival time of process.
+ * int job:       Total time required to complete process.
+ * int remaining: Remaining time required to complete process.
+ * int started:   Time that the process began running.
+ * int last:      Time of the process' last state change.
+ * int finished:  Time that the process was completed.
+ * int load:      Time most recently spent loading pages into memory.
  */
-Process *create_process(int id, int mem, int ta, int tj);
+typedef struct PTime {
+    int arrived, job, remaining, started, last, finished, load;
+} PTime;
 
 /*
- * Adds a process to the process table.
+ * Memory page.
  * 
- * ProcTable *proc_table: Pointer to a process table.
- * Process new_proc:      Details of process to be added.
- * 
- * Returns int: Evaluates to true if there is an error, false otherwise.
+ * int pid: Process ID that this page is allocated to.
+ * int pix: Index within the the allocated process' array of Pages.
  */
-int add_process(ProcTable *proc_table, Process new_proc);
+typedef struct Page {
+    int pid, pix;
+} Page;
 
 /*
- * Sets a system variable without exposing it.
+ * Process struct for use in a process table.
  * 
- * int variable: enum of settable variables.
- * int value:    Value to set it to.
+ * Status status: Current state of the process.
+ * PTime time:    Process Time struct to track process metadata.
+ * Page **pages:  Array of memory addresses allocated to the process.
+ * int id:        Process ID.
+ * int mem:       Memory required (in KB).
+ * int n_pages:   Number of pages in memory.
  */
-void set(int variable, int value);
+typedef struct Process {
+    Status status;
+    PTime time;
+    Page **pages;
+    int id, mem, n_pages;
+} Process;
 
 /*
- * NEEDS DOC
- */
-void start_process(ProcTable *proc_table, Memory *memory, int t);
-
-/*
- * NEEDS DOC
- */
-void pause_process(Process *proc, int t);
-
-/*
- * NEEDS DOC
- */
-void finish_process(ProcTable *proc_table, Memory *memory, int t);
-
-/*
- * Executes one clock cycle on a process table when called.
+ * Encapsulates all process data.
  * 
- * ProcTable *proc_table: Pointer to a process table.
- * int t:                 Time.
- * 
- * Returns int: Enumerated status code.
+ * Status status: Current state of the process.
+ * Process *p:    Array of processes.
+ * int n:         Number of processes in table.
+ * int n_alive:   Number of processes that haven't been terminated.
+ * int context:   Index of process in the current context.
  */
-int run(ProcTable *proc_table, Memory *memory, int t);
+typedef struct PTable {
+    Status status;
+    Process *p;
+    int n, n_alive, context;
+} PTable;
+
+/*
+ * A de-facto OS structure. Contains all data and state tracking needed
+ * for running the system.
+ * 
+ * Status status:       Current state of the system.
+ * PTable table:        Process table.
+ * Page *pages:         Memory pages;
+ * Scheduler scheduler: Process scheduling algorithm to use.
+ * Allocator allocator: Memory allocation algorithm to use.
+ * int time:            Current system time.
+ * int quantum:         Quantum time limit for a process (if applicable).
+ * int mem_size:        System memory size (in KB).
+ * int page_size:       Memory page size (in KB).
+ * int n_pages:         Number of memory pages.
+ */
+typedef struct System {
+    Status status;
+    PTable table;
+    Page *pages;
+    Scheduler scheduler;
+    Allocator allocator;
+    int time, quantum, mem_size, page_size, n_pages;
+} System;
+
+/**** HEADER FILES ****/
+
+#include "scheduler.h"
+#include "mem.h"
+#include "ff.h"
+#include "rr.h"
+
+/**** FUNCTION DEFINITIONS ****/
+
+Process *create_process(int id, int mem, int t_arrived, int t_job);
+
+System *start(Process *p, int n, Scheduler s, Allocator a, int m, int q);
+
+void evict(System *sys, int pid, int n);
+
+/*
+ * Finds the least recently allocated process in the
+ * process table.
+ * 
+ * System sys: OS data structure.
+ * 
+ * Returns int: index in the process table for the oldest process.
+ */
+int oldest(System sys);
+
+/*
+ * Begins running the process in the current context and evitcts
+ * memory to allow it to run.
+ * 
+ * System *sys: Pointer to an OS.
+ */
+void process_start(System *sys);
+
+/*
+ * Pauses the currently running process.
+ * 
+ * System *sys: Pointer to an OS struct.
+ */
+void process_pause(System *sys);
+
+/*
+ * Resumes a paused process.
+ * 
+ * System *sys: Pointer to an OS struct.
+ */
+void process_resume(System *sys);
+
+/*
+ * Performs termination of a process and evicts its memory.
+ * 
+ * System *sys: Pointer to an OS struct.
+ */
+void process_finish(System *sys);
 
 #endif

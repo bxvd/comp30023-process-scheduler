@@ -1,18 +1,24 @@
+/*
+ * rr.c
+ * 
+ * A Round-Robin process scheduling algorithm to run for a
+ * process scheduling simulator. Written for project 2 of
+ * COMP30023 Computer Systems, semester 1 2020.
+ * 
+ * Author: Brodie Daff
+ *         bdaff@student.unimelb.edu.au
+ */
+
 #ifndef RR_H
 #define RR_H
 
 #include "sys.h"
 
 /*
- * Allocates CPU time to processes according
- * to a round-robin algorithm.
+ * Handles a clock cycle for the OS.
  * 
- * ProcTable *proc_table: Pointer to a process table.
- * Memory *memory:        Pointer to memory structure.
- * int t:                 Time.
- * 
- * Returns int: Enumerated status code.
+ * System *sys: Pointer to the OS.
  */
-int rr_run(ProcTable *proc_table, Memory *memory, int t);
+void rr_step(System *sys);
 
 #endif

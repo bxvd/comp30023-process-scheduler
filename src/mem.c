@@ -1,99 +1,201 @@
+/*
+ * mem.c
+ * 
+ * A set of methods and data structures for handling memory
+ * allocation for an operating system. Written for project 2
+ * of COMP30023 Computer Systems, semester 1 2020.
+ * 
+ * Author: Brodie Daff
+ *         bdaff@student.unimelb.edu.au
+ */
+
 #include <stdlib.h>
 #include <string.h>
 
 #include "mem.h"
 
-#define FREE -1
-#define PAGE_LOAD_TIME 2
+int compare_last(const void *a, const void *b) {
 
-/*
- * Allocates memory for a new Memory struct and initialises its values.
- * 
- * int size: The size of the memory to be available in KB.
- * 
- * Returns Memory*: Pointer to the new Memory struct.
- */
-Memory *create_memory(int size, int page_size) {
-
-    Memory *memory = (Memory*)calloc(1, sizeof(Memory));
-    memory->size = size;
-    memory->page_size = page_size;
-    memory->pages = (int*)malloc((size / page_size) * sizeof(int));
+    const Process *p1 = a, *p2 = b;
     
-    for (int i = 0; i < size / page_size; i++) {
-        memory->pages[i] = FREE;
+    if (p1->time.last < p2->time.last) return -1;
+    if (p1->time.last == p2->time.last) {
+        if (p1->id < p2->id) return -1;
+        if (p1->id == p2->id) return 0;
+    }
+    return 1;
+}
+
+int compare_int(const void *a, const void *b) {
+
+    return *((int*)a) == *((int*)b) ? 0 : *((int*)a) < *((int*)b) ? -1 : 1;
+}
+
+Page *create_memory(int size, int page_size) {
+
+    Page *m = (Page*)calloc(1, (size / page_size) * sizeof(Page));
+
+    for (int i = 0; i < (size / page_size); i++) {
+        m[i].pid = m[i].pix = UNDEF;
     }
 
-    return memory;
+    return m;
 }
 
-/*
- * Returns the next available page in memory.
- * 
- * Memory *memory: Pointer to a Memory struct containing pages.
- * 
- * Returns int: Index of available page.
- */
-int next_free(Memory *memory) {
-
-    for (int i = 0; i < memory->size / memory->page_size; i++) {
-        if (memory->pages[i] == FREE) return i;
-    }
-
-    return FREE;
-}
-
-/*
- * Allocates a page of memory to a process.
- * 
- * Process *process: Pointer to process struct that requires memory allocation.
- * Memory *memory:   Memory struct containing pages of memory.
- * int page:         Index of memory page to allocate to the process.
- */
-void allocate_page(Process *process, Memory *memory, int page) {
-
-    process->n_pages++;
-    process->pages[process->n_pages - 1] = page;
-    process->tm += PAGE_LOAD_TIME;
-
-    memory->pages[page] = process->id;
-}
-
-/*
- * Uses clock cycle to allocate a page to memory for the current process
- * indicated in proc_table.
- * 
- * ProcTable *proc_table: Pointer to a process table.
- * Memory *memory:        Pointer to a memory struct.
- * 
- * returns int: Enumerated status flag.
- */
-int allocate_memory(ProcTable *proc_table, Memory *memory) {
-
-    if (memory->allocator == UNLIMITED_MEMORY) return RUNNING;
+void allocate(System *sys, int target) {
 
     // Shorthand
-    Process *proc = &proc_table->procs[proc_table->current];
+    Process *p = &sys->table.p[sys->table.context];
 
-    // Check if more mem needs to be allocated
-    if (proc->n_pages < proc->mem / memory->page_size) {
-
-        // Takes two cycles to load a page to memory
-        proc->load_s += 1;
-        if (proc->load_s == PAGE_LOAD_TIME) {
-            proc->load_s = 0;
-            allocate_page(proc, memory, next_free(memory));
+    for (int i = 0; (p->n_pages < target) && (i < sys->n_pages); i++) {
+        if (sys->pages[i].pid == UNDEF) {
+            sys->pages[i].pid = p->id;
+            sys->pages[i].pix = sys->table.context;
+            p->n_pages++;
+            p->time.load += PAGE_LOAD_TIME;
         }
-
-        return LOADING;
     }
 
-    return RUNNING;
+    //fprintf(stderr, "Allocated %d\n", p->n_pages);
 }
 
-void free_memory(int *pages, int n, Memory *memory) {
+void evict_process(System *sys, int pid, int n) {
+
+    int n_evicted = 0, *evicted = (int*)calloc(1, n * sizeof(int));
+
+    for (int i = 0; i < sys->n_pages && (n_evicted < n); i++) {
+        if (sys->pages[i].pid == pid) {
+
+            sys->table.p[sys->pages[i].pix].n_pages--;
+            sys->pages[i].pid = UNDEF;
+            sys->pages[i].pix = UNDEF;
+            evicted[n_evicted] = i;
+            n_evicted++;
+        }
+    }
+
+    notify(EVICT, *sys, 2, evicted, n_evicted);
+}
+
+void evict_pages(System *sys, int *pages, int n) {
+
+    int n_evicted = 0, *evicted = (int*)calloc(1, n * sizeof(int));
+    Page *page = NULL;
 
     for (int i = 0; i < n; i++) {
-        memory->pages[pages[i]] = FREE;
+
+        // Current page in loop
+        page = &sys->pages[pages[i]];
+
+        sys->table.p[page->pix].n_pages--;
+        page->pid = UNDEF;
+        page->pix = UNDEF;
+        evicted[n_evicted] = pages[i];
+        n_evicted++;
     }
+
+    notify(EVICT, *sys, 2, evicted, n_evicted);
+}
+
+/*
+ * Finds the least recently allocated process in the
+ * process table.
+ * 
+ * System sys: OS data structure.
+ * 
+ * Returns int: index in the process table for the oldest process.
+ */
+int oldest(System sys) {
+
+    // Shorthand
+    Process *p = sys.table.p;
+
+    int candidate = UNDEF;
+
+    // Set context to be the least recently executed or received process
+    for (int i = 0; i < sys.table.n; i++) {
+
+        if (candidate == UNDEF && p[i].n_pages) {
+            candidate = i;
+            continue;
+        }
+
+        if ((p[i].status == START || p[i].status == READY) && p[i].n_pages) {
+            
+            if (p[i].time.last < p[candidate].time.last) {
+                candidate = i;
+            } else if (p[i].time.last == p[candidate].time.last) {
+                if (p[i].time.arrived > p[candidate].time.arrived) candidate = i;
+            }
+        }
+    }
+
+    return candidate;
+}
+
+void swap(System *sys) {
+
+    // Shorthand
+    Process *p = &sys->table.p[sys->table.context];
+
+    int candidate, target = (p->mem / sys->page_size) - p->n_pages;
+
+    p->time.load = 0;
+
+    while (p->n_pages < target) {
+
+        allocate(sys, target);
+
+        if (p->n_pages < target) {
+            
+            candidate = oldest(*sys);
+            evict_process(sys, sys->table.p[candidate].id, sys->table.p[candidate].n_pages);
+        }
+    }
+}
+
+void virtual(System *sys) {
+
+    int *candidates = NULL, n_candidates = 0, target = MIN_PAGES;
+
+    // Shorthand
+    Process *p = &sys->table.p[sys->table.context];
+
+    // Copy of processes sorted by time last allocated
+    Process *sorted = (Process*)malloc(sys->table.n * sizeof(Process));
+    memmove(sorted, sys->table.p, sys->table.n * sizeof(Process));
+    qsort(sorted, sys->table.n, sizeof(Process), compare_last);
+
+    p->time.load = 0;
+
+    candidates = (int*)calloc(1, (p->mem / sys->page_size) * sizeof(int));
+
+    while (p->n_pages < target) {
+    
+        // Attempt to allocate the whole process to memory
+        allocate(sys, p->mem / PAGE_SIZE);
+
+        if (p->n_pages < target) {
+            // Find evictable pages in sorted array
+            for (int i = 0; i < sys->table.n; i++) {
+                for (int j = 0; j < sys->n_pages && n_candidates < (target - p->n_pages); j++) {
+                    if (sys->pages[j].pid == sorted[i].id && sys->pages[j].pid != p->id) {
+                        candidates[n_candidates] = j;
+                        n_candidates++;
+                    }
+                }
+            }
+
+            // Sort in increasing order of memory address
+            qsort(candidates, n_candidates, sizeof(int), compare_int);
+
+            evict_pages(sys, candidates, n_candidates);
+        }
+    }
+
+    // Increase remaining time for page fault
+    p->time.remaining += (p->mem / PAGE_SIZE) - p->n_pages;
+
+    free(candidates);
+    free(sorted);
 }
