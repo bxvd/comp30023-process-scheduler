@@ -111,7 +111,7 @@ int get_procs_from_file(char *filename, Process **p) {
 
 void notify(Notification n, System sys, int var, ...) {
 
-    int *values = NULL, n_values = 0;
+    int *values = NULL, n_values = 0, mem = 0;
 
     // Optional int array passed in
     if (var) {
@@ -127,6 +127,12 @@ void notify(Notification n, System sys, int var, ...) {
     switch (n) {
 
         case RUN:
+
+            // Get memory usage
+            for (int i = 0; i < sys.n_pages; i++) {
+                if (sys.pages[i].pid != UNDEF) mem++;
+            }
+
             fprintf(stdout,
                     "%d, RUNNING, id=%d, remaining-time=%d",
                     sys.time,
@@ -138,7 +144,7 @@ void notify(Notification n, System sys, int var, ...) {
                 fprintf(stdout,
                         ", load-time=%d, mem-usage=%d%%, mem-addresses=[",
                         p.time.load,
-                        (int)(100 * ((float)p.n_pages / sys.n_pages)));
+                        (int)(100 * ((float)mem / sys.n_pages)));
                 
                 // Look through addresses to find the ones allocated to the process
                 int n = 0;
