@@ -1,8 +1,8 @@
 Custom scheduling algorithm: Shortest-Job-First
-This algorithm insterts new processes into the queue in increasing order of required job time and allows the
-scheduler to complete each job to completion, prioritising those with a shorter job time. This reduces the
-time overhead and turnaround time, would be preferable in scenarios where number of jobs completed is valued
-and the specific priority of each process is unknown. This algorithm outperforms both FF and RR:
+Inserts new processes into queue in increasing order of required job time and allows scheduler to complete
+each job to completion, prioritising those with a shorter job time. This reduces the time overhead and
+turnaround time, preferable in scenarios where number of jobs completed is valued and the specific
+priority of each process is unknown. Performance comparison:
 
 Shortest-Job-First:
 Throughput 2, 0, 3
@@ -23,10 +23,9 @@ Time overhead 26.10 13.68
 Makespan 531
 
 Custom memory allocator:
-This memory allocator works similar to virtual but takes extra steps to ensure only the largest processes
-are using virtual memory, allowing the system to more quickly increase its speed with each process it completes.
-As this is heavily based on virtual memory its performance is only marginally better than it, with a 16 second reduction
-in makespan. It does however perform significantly better than Swapping-X.
+Similar to virtual but takes extra steps to ensure only the largest processes are using virtual memory, allowing
+the system to more quickly increase its speed with each process it completes. As this is based on virtual memory
+its performance is marginally better, with a 16 second reduction in makespan. Performance comparison:
 
 Smallest-Job-First:
 Throughput 2, 0, 3
