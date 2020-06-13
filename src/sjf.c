@@ -9,7 +9,7 @@
  *         bdaff@student.unimelb.edu.au
  */
 #include <stdlib.h>
-
+#include <stdio.h>
 #include "sjf.h"
 
 /*

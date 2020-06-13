@@ -1,0 +1,34 @@
+Custom scheduling algorithm: Shortest-Job-First
+Inserts new processes into the queue in increasing order of required job time and allows the scheduler to
+complete each job to completion, prioritising those with a shorter job time. This algorithm outperforms
+both FF and RR:
+
+Shortest-Job-First:
+Throughput 2, 0, 3
+Turnaround time 142
+Time overhead 9.80 6.04
+Makespan 373
+
+First-Come-First-Served:
+Throughput 2, 0, 3
+Turnaround time 191
+Time overhead 35.40 13.42
+Makespan 373
+
+Round-Robin:
+Throughput 2, 0, 3
+Turnaround time 300
+Time overhead 26.10 13.68
+Makespan 531
+
+Custom memory allocator:
+
+
+Shortest-Job-First:
+
+
+First-Come-First-Served:
+
+
+Round-Robin:
+

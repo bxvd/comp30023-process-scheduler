@@ -68,6 +68,7 @@ Status rr_context(System *sys) {
 void rr_step(System *sys) {
 
     int runtime;
+    Process *p = NULL;
 
     switch (sys->status) {
 
@@ -92,16 +93,18 @@ void rr_step(System *sys) {
         
         case RUNNING:
 
+            // Shorthand
+            p = &sys->table.p[sys->table.context];
+
             // Run only for quantum time limit or time remaining
-            
-            runtime = sys->quantum > sys->table.p[sys->table.context].time.remaining ?
-                      sys->table.p[sys->table.context].time.remaining :
+            runtime = sys->quantum > p->time.remaining ?
+                      p->time.remaining :
                       sys->quantum;
 
             sys->time += runtime;
             
             // Check if process has finished
-            if ((sys->table.p[sys->table.context].time.remaining - runtime)) {
+            if ((p->time.remaining - runtime)) {
                 process_pause(sys);
             } else {
                 process_finish(sys);
