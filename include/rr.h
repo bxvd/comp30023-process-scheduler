@@ -15,7 +15,8 @@
 #include "sys.h"
 
 /*
- * Handles a clock cycle for the OS.
+ * Handles a clock cycle for the OS according to
+ * Round-Robin scheduling.
  * 
  * System *sys: Pointer to the OS.
  */

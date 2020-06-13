@@ -14,6 +14,10 @@
 
 #include "mem.h"
 
+/*
+ * Comparison function for qsort that compares time last allocated
+ * for processes.
+ */
 int compare_last(const void *a, const void *b) {
 
     const Process *p1 = a, *p2 = b;
@@ -26,11 +30,23 @@ int compare_last(const void *a, const void *b) {
     return 1;
 }
 
+/*
+ * Comparison function for qsort that compares integer values.
+ */
 int compare_int(const void *a, const void *b) {
 
     return *((int*)a) == *((int*)b) ? 0 : *((int*)a) < *((int*)b) ? -1 : 1;
 }
 
+/*
+ * Allocates memory for an array of Page structures
+ * representing the memory in the scheduling simulator.
+ * 
+ * int size:      Total size in KB of the memory.
+ * int page_size: Size in KB of each page.
+ * 
+ * Returns Page*: Pointer to new array of Pages.
+ */
 Page *create_memory(int size, int page_size) {
 
     Page *m = (Page*)calloc(1, (size / page_size) * sizeof(Page));
@@ -42,6 +58,14 @@ Page *create_memory(int size, int page_size) {
     return m;
 }
 
+/*
+ * Allocates pages to the process in the current context.
+ * Only allocates pages that are free, does not create
+ * free pages.
+ * 
+ * System *sys: Pointer to an OS struct.
+ * int target:  Target number of pages to allocated to the process.
+ */
 void allocate(System *sys, int target) {
 
     // Shorthand
@@ -57,13 +81,22 @@ void allocate(System *sys, int target) {
     }
 }
 
+/*
+ * Evicts pages currently allocated to a process.
+ * 
+ * System *sys: Pointer to an OS struct.
+ * int pid:     Process ID to evict pages for.
+ * int n:       Number of pages to evict.
+ */
 void evict_process(System *sys, int pid, int n) {
 
+    // Track successfully evicted pages
     int n_evicted = 0, *evicted = (int*)calloc(1, n * sizeof(int));
 
     for (int i = 0; i < sys->n_pages && (n_evicted < n); i++) {
         if (sys->pages[i].pid == pid) {
 
+            // Update OS struct to reflect changes
             sys->table.p[sys->pages[i].pix].n_pages--;
             sys->pages[i].pid = UNDEF;
             sys->pages[i].pix = UNDEF;
@@ -75,8 +108,16 @@ void evict_process(System *sys, int pid, int n) {
     notify(EVICT, *sys, 2, evicted, n_evicted);
 }
 
+/*
+ * Evicts pages from memory irregardless of which process they belong to.
+ * 
+ * System *sys: Pointer to an OS struct.
+ * int *pages:  Array of memory addresses to evict from.
+ * int n:       Number of pages to evict.
+ */
 void evict_pages(System *sys, int *pages, int n) {
 
+    // Track successfully evicted pages
     int n_evicted = 0, *evicted = (int*)calloc(1, n * sizeof(int));
     Page *page = NULL;
 
@@ -85,6 +126,7 @@ void evict_pages(System *sys, int *pages, int n) {
         // Current page in loop
         page = &sys->pages[pages[i]];
 
+        // Update OS struct to reflect changes
         sys->table.p[page->pix].n_pages--;
         page->pid = UNDEF;
         page->pix = UNDEF;
@@ -99,7 +141,7 @@ void evict_pages(System *sys, int *pages, int n) {
  * Finds the least recently allocated process in the
  * process table.
  * 
- * System sys: OS data structure.
+ * System sys: An OS struct.
  * 
  * Returns int: index in the process table for the oldest process.
  */
@@ -118,6 +160,7 @@ int oldest(System sys) {
             continue;
         }
 
+        // If this candidate is current and has pages allocated
         if ((p[i].status == START || p[i].status == READY) && p[i].n_pages) {
             
             if (p[i].time.last < p[candidate].time.last) {
@@ -131,6 +174,14 @@ int oldest(System sys) {
     return candidate;
 }
 
+/*
+ * Performs memory swaps based on the Swapping-X algorithm.
+ * Chooses the oldest allocated processes and evicts all of
+ * their pages as necessary, allocating them to the current
+ * context.
+ * 
+ * System *sys: Pointer to an OS struct.
+ */
 void swap(System *sys) {
 
     // Shorthand
@@ -152,6 +203,14 @@ void swap(System *sys) {
     }
 }
 
+/*
+ * Performs memory swaps based on the virtual memory algorithm.
+ * Chooses the oldest allocated processes and evicts only the
+ * number of pages needed to allocated to and begin running the
+ * current context.
+ * 
+ * System *sys: Pointer to an OS struct.
+ */
 void virtual(System *sys) {
 
     int *candidates = NULL, n_candidates = 0, target;
@@ -176,6 +235,7 @@ void virtual(System *sys) {
         allocate(sys, p->mem / PAGE_SIZE);
 
         if (p->n_pages < target) {
+            
             // Find evictable pages in sorted array
             for (int i = 0; i < sys->table.n; i++) {
                 for (int j = 0; j < sys->n_pages && n_candidates < (target - p->n_pages); j++) {

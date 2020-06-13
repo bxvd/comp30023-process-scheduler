@@ -33,7 +33,6 @@
 typedef enum status { ERROR, INIT, START, READY, LOADING, RUNNING, TERMINATED } Status;
 typedef enum scheduler { FF, RR, CS } Scheduler;
 typedef enum allocator { U, SWP, V, CM } Allocator;
-typedef enum notification { RUN, FINISH, EVICT } Notification;
 
 /**** STRUCT DEFINITIONS ****/
 
@@ -125,14 +124,22 @@ typedef struct System {
 #include "mem.h"
 #include "ff.h"
 #include "rr.h"
+#include "sjf.h"
 
 /**** FUNCTION DEFINITIONS ****/
 
+/*
+ * Creates and allocated memory for a new process with 
+ * initialised values.
+ * 
+ * int id:
+ * int mem:
+ * int t_arrived: The time that the process arrived.
+ * int t_job:     Total CPU time required to run the process.
+ * 
+ * Returns Process*: Pointer to the new Process struct.
+ */
 Process *create_process(int id, int mem, int t_arrived, int t_job);
-
-System *start(Process *p, int n, Scheduler s, Allocator a, int m, int q);
-
-void evict(System *sys, int pid, int n);
 
 /*
  * Finds the least recently allocated process in the
@@ -172,5 +179,20 @@ void process_resume(System *sys);
  * System *sys: Pointer to an OS struct.
  */
 void process_finish(System *sys);
+
+/*
+ * Begins running and handles all dispatch to continue running
+ * the OS.
+ * 
+ * Process *p:  Pointer to array of Processes for the process table.
+ * int n:       Number of processes.
+ * Scheduler s: Enumerated value for which scheduling algorithm to use.
+ * Allocator a: Enumerated value for which memory allocation algorithm to use.
+ * int m:       System memory size.
+ * int q:       Quantam time for scheduling.
+ * 
+ * Returns System*: Pointer to the OS struct in its final state.
+ */
+System *start(Process *p, int n, Scheduler s, Allocator a, int m, int q);
 
 #endif
