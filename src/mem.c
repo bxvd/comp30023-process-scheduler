@@ -31,14 +31,6 @@ int compare_last(const void *a, const void *b) {
 }
 
 /*
- * Comparison function for qsort that compares integer values.
- */
-int compare_int(const void *a, const void *b) {
-
-    return *((int*)a) == *((int*)b) ? 0 : *((int*)a) < *((int*)b) ? -1 : 1;
-}
-
-/*
  * Allocates memory for an array of Page structures
  * representing the memory in the scheduling simulator.
  * 
@@ -73,6 +65,8 @@ void allocate(System *sys, int target) {
 
     for (int i = 0; (p->n_pages < target) && (i < sys->n_pages); i++) {
         if (sys->pages[i].pid == UNDEF) {
+
+            // Update OS struct to reflect changes
             sys->pages[i].pid = p->id;
             sys->pages[i].pix = sys->table.context;
             p->n_pages++;
@@ -155,7 +149,7 @@ int oldest(System sys) {
     // Set context to be the least recently executed or received process
     for (int i = 0; i < sys.table.n; i++) {
 
-        if (candidate == UNDEF && p[i].n_pages) {
+        if (candidate == UNDEF && p[i].n_pages && p[i].status != LOADING) {
             candidate = i;
             continue;
         }
@@ -190,6 +184,7 @@ void swap(System *sys) {
     int candidate, target = (p->mem / sys->page_size) - p->n_pages;
 
     p->time.load = 0;
+    p->status = LOADING;
 
     while (p->n_pages < target) {
 
@@ -232,7 +227,7 @@ void virtual(System *sys) {
     while (p->n_pages < target) {
         
         // Attempt to allocate the whole process to memory
-        allocate(sys, p->mem / PAGE_SIZE);
+        allocate(sys, p->mem / sys->page_size);
 
         if (p->n_pages < target) {
             
@@ -254,7 +249,7 @@ void virtual(System *sys) {
     }
 
     // Increase remaining time for page fault
-    p->time.remaining += (p->mem / PAGE_SIZE) - p->n_pages;
+    p->time.remaining += (p->mem / sys->page_size) - p->n_pages;
 
     free(candidates);
     free(sorted);

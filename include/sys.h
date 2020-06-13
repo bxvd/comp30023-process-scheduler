@@ -28,6 +28,9 @@
 // Flag for checking uninitialised variables
 #define UNDEF -1
 
+#define min(a, b) (a < b ? a : b)
+#define max(a, b) (a > b ? a : b)
+
 /**** ENUM DEFINITIONS ****/
 
 typedef enum status { ERROR, INIT, START, READY, LOADING, RUNNING, TERMINATED } Status;
@@ -125,8 +128,14 @@ typedef struct System {
 #include "ff.h"
 #include "rr.h"
 #include "sjf.h"
+#include "smlswp.h"
 
 /**** FUNCTION DEFINITIONS ****/
+
+/*
+ * Comparison function for qsort that compares integer values.
+ */
+int compare_int(const void *a, const void *b);
 
 /*
  * Creates and allocated memory for a new process with 

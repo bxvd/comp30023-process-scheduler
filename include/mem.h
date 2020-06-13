@@ -14,8 +14,6 @@
 
 #include "sys.h"
 
-#define min(a, b) (a < b ? a : b)
-
 /*
  * Allocates memory for an array of Page structures
  * representing the memory in the scheduling simulator.
@@ -45,6 +43,15 @@ void allocate(System *sys, int target);
  * int n:       Number of pages to evict.
  */
 void evict_process(System *sys, int pid, int n);
+
+/*
+ * Evicts pages from memory irregardless of which process they belong to.
+ * 
+ * System *sys: Pointer to an OS struct.
+ * int *pages:  Array of memory addresses to evict from.
+ * int n:       Number of pages to evict.
+ */
+void evict_pages(System *sys, int *pages, int n);
 
 /*
  * Finds the least recently allocated process in the

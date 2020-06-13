@@ -9,6 +9,9 @@
  *         bdaff@student.unimelb.edu.au
  */
 
+#ifndef SJF_H
+#define SJF_H
+
 #include "sys.h"
 
 /*
@@ -18,3 +21,5 @@
  * System *sys: Pointer to the OS.
  */
 void cs_step(System *sys);
+
+#endif

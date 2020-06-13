@@ -32,6 +32,14 @@ int compare(const void *a, const void *b) {
 }
 
 /*
+ * Comparison function for qsort that compares integer values.
+ */
+int compare_int(const void *a, const void *b) {
+
+    return *((int*)a) == *((int*)b) ? 0 : *((int*)a) < *((int*)b) ? -1 : 1;
+}
+
+/*
  * Creates and allocated memory for a new process with 
  * initialised values.
  * 
@@ -125,7 +133,7 @@ void process_start(System *sys) {
 
         case SWP: swap(sys); break;
         case V: virtual(sys); break;
-        case CM: break;
+        case CM: smallswap(sys); break;
         default: break;
     }
 
@@ -172,7 +180,7 @@ void process_resume(System *sys) {
 
         case SWP: swap(sys); break;
         case V: virtual(sys); break;
-        case CM: break;
+        case CM: smallswap(sys); break;
         default: break;
     }
 
