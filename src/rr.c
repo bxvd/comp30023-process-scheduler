@@ -50,7 +50,7 @@ Status rr_context(System *sys) {
             } else if (p[i].time.last == p[sys->table.context].time.last) {
                 if (p[i].time.arrived > p[sys->table.context].time.arrived) sys->table.context = i;
             }
-            //fprintf(stderr, "rr_context pid %d, status %d\n", p[i].id, p[i].status);
+
             flag = READY;
         }
     }

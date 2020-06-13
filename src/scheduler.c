@@ -46,8 +46,8 @@ void print_stats(System *sys) {
         if (p[i].status == TERMINATED) {
 
             // Increase count of processes finished in each interval
-            interval[p[i].time.finished / (EPOCH + 1)]++;
-
+            interval[(int)(p[i].time.finished / (EPOCH + 0.01))]++;
+        
             // Turnaround time
             int _trn = p[i].time.finished - p[i].time.arrived;
             trn += _trn;
