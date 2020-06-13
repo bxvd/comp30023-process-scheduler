@@ -25,7 +25,15 @@ make s=1
 # echo
 # echo ./scheduler $(< tests/testcase6.in)
 # ./scheduler $(< tests/testcase6.in)
+# echo
+# echo
+# echo ./scheduler $(< tests/testcase7.in)
+# ./scheduler $(< tests/testcase7.in)
+# echo
+# echo
+# echo ./scheduler $(< tests/testcase8.in)
+# ./scheduler $(< tests/testcase8.in)
 echo
 echo
-echo ./scheduler $(< tests/testcase7.in)
-./scheduler $(< tests/testcase7.in)
+echo ./scheduler $(< tests/testcase9.in)
+./scheduler $(< tests/testcase9.in)

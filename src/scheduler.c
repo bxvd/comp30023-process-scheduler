@@ -144,7 +144,7 @@ void notify(Notification n, System sys, int var, ...) {
                 fprintf(stdout,
                         ", load-time=%d, mem-usage=%d%%, mem-addresses=[",
                         p.time.load,
-                        ceil((((float)mem * 100) / sys.n_pages)));
+                        ceil(((float)mem * 100) / sys.n_pages));
                 
                 // Look through addresses to find the ones allocated to the process
                 int n = 0;

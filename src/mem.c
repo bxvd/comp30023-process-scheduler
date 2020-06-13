@@ -55,8 +55,6 @@ void allocate(System *sys, int target) {
             p->time.load += PAGE_LOAD_TIME;
         }
     }
-
-    //fprintf(stderr, "Allocated %d\n", p->n_pages);
 }
 
 void evict_process(System *sys, int pid, int n) {
@@ -156,7 +154,7 @@ void swap(System *sys) {
 
 void virtual(System *sys) {
 
-    int *candidates = NULL, n_candidates = 0, target = MIN_PAGES;
+    int *candidates = NULL, n_candidates = 0, target;
 
     // Shorthand
     Process *p = &sys->table.p[sys->table.context];
@@ -170,8 +168,10 @@ void virtual(System *sys) {
 
     candidates = (int*)calloc(1, (p->mem / sys->page_size) * sizeof(int));
 
+    target = min((p->mem / sys->page_size), MIN_PAGES);
+
     while (p->n_pages < target) {
-    
+        
         // Attempt to allocate the whole process to memory
         allocate(sys, p->mem / PAGE_SIZE);
 

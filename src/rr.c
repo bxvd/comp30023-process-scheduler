@@ -31,16 +31,26 @@ Status rr_context(System *sys) {
         flag = READY;
     }
 
+    // Ensure we're not including terminated processes
+    if (p[sys->table.context].status == TERMINATED) {
+        for (int i = 0; i < sys->table.n; i++) {
+            if (p[i].status != TERMINATED) {
+                sys->table.context = i;
+                break;
+            }
+        }
+    }
+
     // Set context to be the least recently executed or received process
     for (int i = 0; i < sys->table.n; i++) {
         if (p[i].status == START || p[i].status == READY) {
             
-            if (p[i].time.last < p[sys->table.context].time.last) {
+            if (p[i].time.last < p[sys->table.context].time.last && p[sys->table.context].status != TERMINATED) {
                 sys->table.context = i;
             } else if (p[i].time.last == p[sys->table.context].time.last) {
                 if (p[i].time.arrived > p[sys->table.context].time.arrived) sys->table.context = i;
             }
-
+            //fprintf(stderr, "rr_context pid %d, status %d\n", p[i].id, p[i].status);
             flag = READY;
         }
     }

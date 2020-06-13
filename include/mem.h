@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include "sys.h"
 
+#define min(a, b) (a < b ? a : b)
+
 Page *create_memory(int size, int page_size);
 
 void allocate(System *sys, int target);
